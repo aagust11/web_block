@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ca">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Web Block Monitor</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="lockOverlay" class="lock-overlay hidden" role="alertdialog" aria-modal="true" aria-labelledby="lockTitle" aria-describedby="lockDescription">
+      <div class="lock-overlay__content">
+        <h2 id="lockTitle"></h2>
+        <p id="lockDescription"></p>
+        <button id="unlockButton" class="primary" type="button"></button>
+      </div>
+    </div>
+
+    <header class="app-header">
+      <div class="app-header__brand">
+        <span class="app-header__logo" aria-hidden="true">🔒</span>
+        <h1 id="headerTitle"></h1>
+      </div>
+    </header>
+
+    <div class="banner" role="status" aria-live="polite">
+      <div class="banner__text">
+        <strong id="bannerTitle"></strong>
+        <p id="bannerDescription"></p>
+      </div>
+      <div class="banner__badges">
+        <span class="badge" id="monitorBadge" aria-live="polite"></span>
+        <span class="badge badge--alert" id="lockBadge" aria-live="polite"></span>
+      </div>
+    </div>
+
+    <main>
+      <section id="errorRegion" class="error hidden" role="alert" aria-live="assertive"></section>
+
+      <section id="accessScreen" class="panel">
+        <h2 id="accessTitle"></h2>
+        <p id="accessDescription"></p>
+        <form id="accessForm" novalidate>
+          <label for="codeInput" id="codeLabel"></label>
+          <input id="codeInput" name="code" type="text" inputmode="uppercase" autocomplete="off" required aria-describedby="attemptsInfo" />
+          <p id="attemptsInfo" class="help-text"></p>
+          <div class="actions">
+            <button type="submit" id="submitButton" class="primary"></button>
+          </div>
+        </form>
+      </section>
+
+      <section id="viewer" class="panel hidden" aria-live="polite">
+        <header class="panel__header">
+          <h2 id="viewerTitle"></h2>
+          <div class="status" role="status" aria-live="polite">
+            <span class="status__item" id="visibilityStatus"></span>
+            <span class="status__item" id="focusStatus"></span>
+            <span class="status__item" id="fullscreenStatus"></span>
+          </div>
+        </header>
+        <div class="viewer__frame">
+          <iframe id="contentFrame" title="Visor de contingut" loading="lazy" referrerpolicy="no-referrer" tabindex="-1"></iframe>
+        </div>
+        <section id="fallback" class="fallback hidden" role="group" aria-live="polite">
+          <h3 id="fallbackTitle"></h3>
+          <p id="fallbackDescription"></p>
+          <a id="fallbackLink" class="primary" href="#" target="_blank" rel="noopener"></a>
+        </section>
+      </section>
+    </main>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
