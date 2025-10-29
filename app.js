@@ -1,4 +1,5 @@
 const MAX_ATTEMPTS = 5;
+const MONITORING_DELAY_MS = 10_000;
 const STORAGE_KEYS = {
   attempts: 'wb_attempts',
   locked: 'wb_locked',
@@ -6,10 +7,17 @@ const STORAGE_KEYS = {
 };
 
 const elements = {
+  appHeader: document.querySelector('.app-header'),
   lockOverlay: document.getElementById('lockOverlay'),
   lockTitle: document.getElementById('lockTitle'),
   lockDescription: document.getElementById('lockDescription'),
   unlockButton: document.getElementById('unlockButton'),
+  unlockForm: document.getElementById('unlockForm'),
+  unlockLabel: document.getElementById('unlockLabel'),
+  unlockInput: document.getElementById('unlockInput'),
+  unlockSubmit: document.getElementById('unlockSubmit'),
+  unlockError: document.getElementById('unlockError'),
+  unlockHelp: document.getElementById('unlockHelp'),
   headerTitle: document.getElementById('headerTitle'),
   bannerTitle: document.getElementById('bannerTitle'),
   bannerDescription: document.getElementById('bannerDescription'),
@@ -42,7 +50,10 @@ const state = {
   attemptsLeft: MAX_ATTEMPTS,
   locked: false,
   viewerActive: false,
-  activeCode: null
+  activeCode: null,
+  contentReady: false,
+  monitoringEnabled: false,
+  monitoringTimer: null
 };
 
 async function fetchJson(path) {
@@ -102,6 +113,18 @@ function applyMessages(messages) {
   elements.lockTitle.textContent = ui.overlayLockedTitle;
   elements.lockDescription.textContent = ui.overlayLockedDescription;
   elements.unlockButton.textContent = ui.overlayUnlockCta;
+  if (elements.unlockLabel) {
+    elements.unlockLabel.textContent = ui.overlayUnlockLabel;
+  }
+  if (elements.unlockInput) {
+    elements.unlockInput.setAttribute('placeholder', ui.overlayUnlockPlaceholder);
+  }
+  if (elements.unlockSubmit) {
+    elements.unlockSubmit.textContent = ui.overlayUnlockSubmit;
+  }
+  if (elements.unlockHelp) {
+    elements.unlockHelp.textContent = ui.overlayUnlockHelp;
+  }
 
   updateStatuses();
   updateAttemptsInfo();
@@ -129,16 +152,43 @@ function clearError() {
   elements.errorRegion.classList.add('hidden');
 }
 
+function disableMonitoring() {
+  state.monitoringEnabled = false;
+  if (state.monitoringTimer) {
+    window.clearTimeout(state.monitoringTimer);
+    state.monitoringTimer = null;
+  }
+}
+
+function scheduleMonitoringStart() {
+  disableMonitoring();
+  if (!state.contentReady) {
+    return;
+  }
+  state.monitoringTimer = window.setTimeout(() => {
+    state.monitoringEnabled = true;
+    state.monitoringTimer = null;
+  }, MONITORING_DELAY_MS);
+}
+
 function setLocked(isLocked) {
   state.locked = isLocked;
   if (isLocked) {
     writeStorage(STORAGE_KEYS.locked, 'true');
     elements.lockBadge.textContent = state.messages?.banner.locked ?? 'Bloquejat';
     elements.lockOverlay.classList.remove('hidden');
+    elements.monitorBadge.textContent = state.messages?.ui.monitorBadgeFallback ?? elements.monitorBadge.textContent;
+    disableMonitoring();
+    refreshUnlockForm();
   } else {
     removeStorage(STORAGE_KEYS.locked);
     elements.lockBadge.textContent = state.messages?.banner.unlocked ?? 'Desbloquejat';
     elements.lockOverlay.classList.add('hidden');
+    elements.monitorBadge.textContent = state.messages?.banner.monitor ?? elements.monitorBadge.textContent;
+    clearUnlockError();
+    if (state.viewerActive) {
+      scheduleMonitoringStart();
+    }
   }
   updateAttemptsInfo();
 }
@@ -146,18 +196,21 @@ function setLocked(isLocked) {
 function resetViewer() {
   state.viewerActive = false;
   state.activeCode = null;
+  state.contentReady = false;
   elements.viewer.classList.add('hidden');
   elements.accessScreen.classList.remove('hidden');
   elements.contentFrame.setAttribute('src', 'about:blank');
   elements.fallback.classList.add('hidden');
   elements.fallbackLink.setAttribute('href', '#');
   removeStorage(STORAGE_KEYS.lastCode);
+  disableMonitoring();
   clearError();
+  elements.appHeader?.classList.remove('hidden');
   elements.codeInput.focus();
 }
 
 function engageLock(reason = '') {
-  if (!state.viewerActive || state.locked) {
+  if (!state.viewerActive || state.locked || !state.monitoringEnabled) {
     return;
   }
   console.warn('Activant bloqueig per', reason);
@@ -242,10 +295,11 @@ function handleSubmit(event) {
   elements.fallbackLink.setAttribute('href', match.link);
   elements.accessScreen.classList.add('hidden');
   elements.viewer.classList.remove('hidden');
+  state.contentReady = false;
+  disableMonitoring();
+  elements.appHeader?.classList.add('hidden');
 
-  if (match.unlock) {
-    setLocked(false);
-  }
+  setLocked(false);
 
   elements.contentFrame.focus();
 }
@@ -253,11 +307,102 @@ function handleSubmit(event) {
 function handleFrameError() {
   elements.fallback.classList.remove('hidden');
   elements.monitorBadge.textContent = state.messages.ui.monitorBadgeFallback;
+  state.contentReady = false;
+  disableMonitoring();
 }
 
 function handleFrameLoad() {
   elements.fallback.classList.add('hidden');
   elements.monitorBadge.textContent = state.messages.banner.monitor;
+  state.contentReady = true;
+  scheduleMonitoringStart();
+}
+
+function getActiveUnlockSecret() {
+  if (!state.activeCode) {
+    return null;
+  }
+  const record = state.codes[state.activeCode];
+  if (!record) {
+    return null;
+  }
+  const { unlock } = record;
+  if (typeof unlock === 'string') {
+    const trimmed = unlock.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+  if (unlock === true) {
+    return state.activeCode;
+  }
+  return null;
+}
+
+function unlockUsesAccessCode() {
+  if (!state.activeCode) {
+    return false;
+  }
+  const record = state.codes[state.activeCode];
+  return record?.unlock === true;
+}
+
+function clearUnlockError() {
+  if (!elements.unlockError) return;
+  elements.unlockError.textContent = '';
+  elements.unlockError.classList.add('hidden');
+}
+
+function showUnlockError(message) {
+  if (!elements.unlockError) return;
+  elements.unlockError.textContent = message;
+  elements.unlockError.classList.remove('hidden');
+}
+
+function refreshUnlockForm() {
+  if (!elements.unlockForm || !state.messages) {
+    return;
+  }
+  const secret = getActiveUnlockSecret();
+  if (secret) {
+    elements.unlockForm.classList.remove('hidden');
+    elements.unlockHelp?.classList.remove('hidden');
+  } else {
+    elements.unlockForm.classList.add('hidden');
+    elements.unlockHelp?.classList.add('hidden');
+  }
+  if (elements.unlockInput) {
+    elements.unlockInput.value = '';
+  }
+  clearUnlockError();
+}
+
+function handleUnlockSubmit(event) {
+  event.preventDefault();
+  clearUnlockError();
+
+  const secret = getActiveUnlockSecret();
+  if (!secret) {
+    showUnlockError(state.messages.ui.overlayUnlockUnavailable);
+    return;
+  }
+
+  let candidate = elements.unlockInput.value.trim();
+  if (unlockUsesAccessCode()) {
+    candidate = candidate.toUpperCase();
+  }
+  if (candidate !== secret) {
+    showUnlockError(state.messages.ui.overlayUnlockError);
+    return;
+  }
+
+  setLocked(false);
+  if (state.viewerActive) {
+    elements.monitorBadge.textContent = state.messages.banner.monitor;
+    elements.contentFrame.focus();
+  }
+}
+
+function isMonitoringActive() {
+  return state.viewerActive && state.monitoringEnabled && !state.locked;
 }
 
 async function init() {
@@ -280,12 +425,16 @@ async function init() {
     updateAttemptsInfo();
     resetViewer();
   });
+  elements.unlockForm?.addEventListener('submit', handleUnlockSubmit);
 
   elements.contentFrame.addEventListener('error', handleFrameError);
   elements.contentFrame.addEventListener('load', handleFrameLoad);
 
   document.addEventListener('visibilitychange', () => {
     updateStatuses();
+    if (!isMonitoringActive()) {
+      return;
+    }
     if (document.visibilityState !== 'visible') {
       elements.monitorBadge.textContent = state.messages.ui.monitorBadgeFallback;
       engageLock('visibility');
@@ -296,27 +445,30 @@ async function init() {
 
   window.addEventListener('blur', () => {
     updateStatuses();
-    elements.monitorBadge.textContent = state.messages.ui.monitorBadgeFallback;
-    engageLock('focus');
+    if (!isMonitoringActive()) {
+      return;
+    }
+    if (document.visibilityState !== 'visible') {
+      elements.monitorBadge.textContent = state.messages.ui.monitorBadgeFallback;
+      engageLock('focus');
+    }
   });
 
   window.addEventListener('focus', () => {
     updateStatuses();
-    if (!state.locked) {
+    if (!state.locked && state.viewerActive) {
       elements.monitorBadge.textContent = state.messages.banner.monitor;
     }
   });
 
   document.addEventListener('fullscreenchange', () => {
     updateStatuses();
-    if (!document.fullscreenElement) {
-      engageLock('fullscreen');
-    }
   });
 
   if (state.locked) {
     elements.lockBadge.textContent = state.messages.banner.locked;
     elements.lockOverlay.classList.remove('hidden');
+    refreshUnlockForm();
   } else {
     elements.lockBadge.textContent = state.messages.banner.unlocked;
   }

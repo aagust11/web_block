@@ -1,14 +1,6 @@
 {
-  "ALFA123": {
-    "link": "https://example.com/recurs-segur",
-    "unlock": true
-  },
-  "BETA456": {
-    "link": "https://example.org/material",
-    "unlock": false
-  },
-  "GAMMA789": {
-    "link": "https://example.net/document",
-    "unlock": true
-  }
+  "ABCD1234": { "link": "https://docs.google.com/forms/d/e/XXXXXXXX/viewform", "unlock": "Anajd/njs92!!1" },
+  "EXAM2025": { "link": "https://example.com/activitat", "unlock": "ANDHSUID7%3395" },
+  "LAB2024": { "link": "https://example.edu/laboratori", "unlock": true },
+  "QUIZ0001": { "link": "https://example.net/quiz", "unlock": false }
 }
