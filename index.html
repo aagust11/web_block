@@ -12,7 +12,16 @@
       <div class="lock-overlay__content">
         <h2 id="lockTitle"></h2>
         <p id="lockDescription"></p>
-        <button id="unlockButton" class="primary" type="button"></button>
+        <form id="unlockForm" class="lock-overlay__form hidden" novalidate>
+          <label id="unlockLabel" for="unlockInput"></label>
+          <input id="unlockInput" type="password" autocomplete="off" />
+          <p id="unlockHelp" class="help-text hidden"></p>
+          <p id="unlockError" class="lock-overlay__error hidden" role="alert"></p>
+          <button id="unlockSubmit" class="primary" type="submit"></button>
+        </form>
+        <div class="lock-overlay__actions">
+          <button id="unlockButton" class="primary" type="button"></button>
+        </div>
       </div>
     </div>
 

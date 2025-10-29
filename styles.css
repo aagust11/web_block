@@ -265,7 +265,44 @@ a.primary:active {
   gap: 1rem;
 }
 
-.lock-overlay__content button {
+.lock-overlay__form {
+  display: grid;
+  gap: 0.75rem;
+  text-align: left;
+}
+
+.lock-overlay__form button {
+  width: 100%;
+  justify-self: stretch;
+}
+
+.lock-overlay__form input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  font-size: 1rem;
+  color: var(--color-text);
+  background-color: #fefefe;
+}
+
+.lock-overlay__form input:focus {
+  outline: 3px solid rgba(37, 99, 235, 0.35);
+  outline-offset: 2px;
+}
+
+.lock-overlay__error {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--color-alert);
+}
+
+.lock-overlay__actions {
+  display: flex;
+  justify-content: center;
+}
+
+.lock-overlay__actions button {
   justify-self: center;
 }
 
