@@ -197,6 +197,7 @@ function resetViewer() {
   state.viewerActive = false;
   state.activeCode = null;
   state.contentReady = false;
+  applyViewerLayout(false);
   elements.viewer.classList.add('hidden');
   elements.accessScreen.classList.remove('hidden');
   elements.contentFrame.setAttribute('src', 'about:blank');
@@ -301,6 +302,7 @@ function handleSubmit(event) {
 
   setLocked(false);
 
+  applyViewerLayout(true);
   elements.contentFrame.focus();
 }
 
@@ -362,17 +364,19 @@ function refreshUnlockForm() {
     return;
   }
   const secret = getActiveUnlockSecret();
+  elements.unlockForm.classList.remove('hidden');
   if (secret) {
-    elements.unlockForm.classList.remove('hidden');
     elements.unlockHelp?.classList.remove('hidden');
   } else {
-    elements.unlockForm.classList.add('hidden');
     elements.unlockHelp?.classList.add('hidden');
   }
   if (elements.unlockInput) {
     elements.unlockInput.value = '';
   }
   clearUnlockError();
+  if (!elements.unlockForm.classList.contains('hidden')) {
+    elements.unlockInput?.focus();
+  }
 }
 
 function handleUnlockSubmit(event) {
@@ -405,6 +409,10 @@ function isMonitoringActive() {
   return state.viewerActive && state.monitoringEnabled && !state.locked;
 }
 
+function applyViewerLayout(isActive) {
+  document.body.classList.toggle('viewer-active', Boolean(isActive));
+}
+
 async function init() {
   initialiseState();
 
@@ -418,12 +426,11 @@ async function init() {
   }
 
   elements.accessForm.addEventListener('submit', handleSubmit);
-  elements.unlockButton.addEventListener('click', () => {
-    setLocked(false);
-    state.attemptsLeft = MAX_ATTEMPTS;
-    persistAttempts();
-    updateAttemptsInfo();
-    resetViewer();
+  elements.unlockButton?.addEventListener('click', (event) => {
+    event.preventDefault();
+    if (elements.unlockInput && !elements.unlockForm?.classList.contains('hidden')) {
+      elements.unlockInput.focus();
+    }
   });
   elements.unlockForm?.addEventListener('submit', handleUnlockSubmit);
 
@@ -448,16 +455,25 @@ async function init() {
     if (!isMonitoringActive()) {
       return;
     }
-    if (document.visibilityState !== 'visible') {
-      elements.monitorBadge.textContent = state.messages.ui.monitorBadgeFallback;
-      engageLock('focus');
-    }
+    elements.monitorBadge.textContent = state.messages.ui.monitorBadgeFallback;
+    engageLock('focus');
   });
 
   window.addEventListener('focus', () => {
     updateStatuses();
     if (!state.locked && state.viewerActive) {
       elements.monitorBadge.textContent = state.messages.banner.monitor;
+    }
+  });
+
+  document.addEventListener('focusin', () => {
+    updateStatuses();
+    if (!isMonitoringActive()) {
+      return;
+    }
+    if (document.activeElement !== elements.contentFrame) {
+      elements.monitorBadge.textContent = state.messages.ui.monitorBadgeFallback;
+      engageLock('focus-change');
     }
   });
 
