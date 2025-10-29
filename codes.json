@@ -1,0 +1,14 @@
+{
+  "ALFA123": {
+    "link": "https://example.com/recurs-segur",
+    "unlock": true
+  },
+  "BETA456": {
+    "link": "https://example.org/material",
+    "unlock": false
+  },
+  "GAMMA789": {
+    "link": "https://example.net/document",
+    "unlock": true
+  }
+}

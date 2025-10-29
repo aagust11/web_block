@@ -1,0 +1,39 @@
+{
+  "banner": {
+    "title": "Supervisió de l'accés",
+    "description": "Aquesta pàgina controla l'obertura de recursos protegits i n'informa l'estat en temps real.",
+    "monitor": "Monitoratge actiu",
+    "locked": "Mode bloquejat",
+    "unlocked": "Mode desbloquejat"
+  },
+  "ui": {
+    "headerTitle": "Control d'accés segur",
+    "accessTitle": "Introdueix el teu codi",
+    "accessDescription": "Només els codis autoritzats poden carregar el recurs. Mantingues la pestanya activa i a pantalla completa quan s'obri el visor.",
+    "codeLabel": "Codi d'autorització",
+    "codePlaceholder": "Escriu el codi en majúscules",
+    "submit": "Obrir recurs",
+    "attempts": "Tens {count} intents restants.",
+    "attemptsLocked": "Has superat el nombre màxim d'intents. Espera o demana assistència.",
+    "viewerTitle": "Visor de contingut",
+    "fallbackTitle": "No s'ha pogut carregar el recurs",
+    "fallbackDescription": "Revisa la teva connexió o fes servir l'enllaç alternatiu per accedir-hi manualment.",
+    "fallbackLink": "Obrir en una pestanya nova",
+    "overlayLockedTitle": "Accés bloquejat",
+    "overlayLockedDescription": "Hem detectat una interrupció del monitoratge. Torna a iniciar la sessió per continuar.",
+    "overlayUnlockCta": "Torna a la pantalla d'accés",
+    "errorInvalid": "El codi introduït no és vàlid.",
+    "errorLocked": "El sistema està bloquejat. Torna a iniciar per continuar.",
+    "errorAttempts": "Has exhaurit els intents disponibles.",
+    "statusVisibility": "Visibilitat",
+    "statusVisibilityHidden": "Pestanya inactiva",
+    "statusVisibilityVisible": "Pestanya activa",
+    "statusFocus": "Focus",
+    "statusFocusLost": "Fora de focus",
+    "statusFocusActive": "En focus",
+    "statusFullscreen": "Pantalla completa",
+    "statusFullscreenOn": "Activa",
+    "statusFullscreenOff": "Inactiva",
+    "monitorBadgeFallback": "Monitoratge pausat"
+  }
+}
