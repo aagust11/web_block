@@ -1,4 +1,5 @@
 const MAX_ATTEMPTS = 5;
+const MONITORING_DELAY_MS = 10_000;
 const STORAGE_KEYS = {
   attempts: 'wb_attempts',
   locked: 'wb_locked',
@@ -51,7 +52,8 @@ const state = {
   viewerActive: false,
   activeCode: null,
   contentReady: false,
-  monitoringEnabled: false
+  monitoringEnabled: false,
+  monitoringTimer: null
 };
 
 async function fetchJson(path) {
@@ -152,6 +154,10 @@ function clearError() {
 
 function disableMonitoring() {
   state.monitoringEnabled = false;
+  if (state.monitoringTimer) {
+    window.clearTimeout(state.monitoringTimer);
+    state.monitoringTimer = null;
+  }
 }
 
 function scheduleMonitoringStart() {
@@ -159,23 +165,10 @@ function scheduleMonitoringStart() {
   if (!state.contentReady) {
     return;
   }
-  state.monitoringEnabled = true;
-  ensureViewerContext('initial-context');
-}
-
-function ensureViewerContext(reason) {
-  if (!state.viewerActive || state.locked) {
-    return;
-  }
-
-  const isVisible = document.visibilityState === 'visible';
-  const hasWindowFocus = document.hasFocus();
-  if (isVisible && hasWindowFocus) {
-    return;
-  }
-
-  elements.monitorBadge.textContent = state.messages?.ui.monitorBadgeFallback ?? elements.monitorBadge.textContent;
-  engageLock(reason);
+  state.monitoringTimer = window.setTimeout(() => {
+    state.monitoringEnabled = true;
+    state.monitoringTimer = null;
+  }, MONITORING_DELAY_MS);
 }
 
 function setLocked(isLocked) {
