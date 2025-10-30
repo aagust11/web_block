@@ -1,5 +1,5 @@
 const MAX_ATTEMPTS = 5;
-const MONITORING_DELAY_MS = 10_000;
+const MONITORING_DELAY_MS = 2_000;
 const STORAGE_KEYS = {
   attempts: 'wb_attempts',
   locked: 'wb_locked',
@@ -168,6 +168,7 @@ function scheduleMonitoringStart() {
   state.monitoringTimer = window.setTimeout(() => {
     state.monitoringEnabled = true;
     state.monitoringTimer = null;
+    enforceMonitoringState();
   }, MONITORING_DELAY_MS);
 }
 
@@ -407,6 +408,43 @@ function handleUnlockSubmit(event) {
 
 function isMonitoringActive() {
   return state.viewerActive && state.monitoringEnabled && !state.locked;
+}
+
+function enforceMonitoringState() {
+  if (!isMonitoringActive()) {
+    return;
+  }
+
+  updateStatuses();
+
+  const ui = state.messages?.ui;
+  if (!ui) {
+    return;
+  }
+
+  const tabVisible = document.visibilityState === 'visible';
+  const windowFocused = document.hasFocus();
+  const activeElement = document.activeElement;
+  const frameFocused = activeElement === elements.contentFrame || document.fullscreenElement === elements.contentFrame;
+
+  if (tabVisible && windowFocused && frameFocused) {
+    return;
+  }
+
+  elements.monitorBadge.textContent = ui.monitorBadgeFallback ?? elements.monitorBadge.textContent;
+
+  const reasons = [];
+  if (!tabVisible) {
+    reasons.push('visibility-check');
+  }
+  if (!windowFocused) {
+    reasons.push('focus-check');
+  }
+  if (!frameFocused) {
+    reasons.push('frame-focus-check');
+  }
+
+  engageLock(reasons.join('+') || 'monitoring-check');
 }
 
 function applyViewerLayout(isActive) {
