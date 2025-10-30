@@ -4,8 +4,9 @@
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Web Block Monitor</title>
+    <title>contrOwl</title>
     <link rel="stylesheet" href="styles.css" />
+    <link rel="icon" href="src/contrOwl.ico" />
   </head>
   <body>
     <div id="lockOverlay" class="lock-overlay hidden" role="alertdialog" aria-modal="true" aria-labelledby="lockTitle" aria-describedby="lockDescription">
@@ -27,8 +28,15 @@
 
     <header class="app-header">
       <div class="app-header__brand">
-        <span class="app-header__logo" aria-hidden="true">🔒</span>
-        <h1 id="headerTitle"></h1>
+        <img
+          src="src/control.png"
+          alt="Logotip contrOwl"
+          class="app-header__logo"
+        />
+        <div class="app-header__titles">
+          <h1 class="app-header__name">contrOwl</h1>
+          <p id="headerTitle" class="app-header__tagline"></p>
+        </div>
       </div>
     </header>
 
