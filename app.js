@@ -404,12 +404,24 @@ function refreshUnlockForm() {
 }
 
 function completeUnlock() {
+  const shouldReactivateMonitoring = state.viewerActive;
   setLocked(false);
-  if (state.viewerActive) {
-    elements.monitorBadge.textContent = state.messages.banner.monitor;
-    elements.contentFrame.focus();
-    scheduleMonitoringStart(true);
+
+  if (!shouldReactivateMonitoring) {
+    return;
   }
+
+  elements.monitorBadge.textContent = state.messages.banner.monitor;
+  elements.contentFrame.focus();
+
+  if (state.contentReady) {
+    scheduleMonitoringStart(true);
+  } else {
+    state.monitoringEnabled = true;
+    state.monitoringTimer = null;
+  }
+
+  enforceMonitoringState();
 }
 
 function handleUnlockSubmit(event) {
