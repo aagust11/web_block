@@ -160,11 +160,22 @@ function disableMonitoring() {
   }
 }
 
-function scheduleMonitoringStart() {
+function scheduleMonitoringStart(immediate = false) {
   disableMonitoring();
-  if (!state.contentReady) {
+  if (!state.viewerActive || !state.contentReady) {
     return;
   }
+
+  if (immediate) {
+    state.monitoringEnabled = true;
+    window.requestAnimationFrame(() => {
+      if (state.monitoringEnabled) {
+        enforceMonitoringState();
+      }
+    });
+    return;
+  }
+
   state.monitoringTimer = window.setTimeout(() => {
     state.monitoringEnabled = true;
     state.monitoringTimer = null;
@@ -403,6 +414,7 @@ function handleUnlockSubmit(event) {
   if (state.viewerActive) {
     elements.monitorBadge.textContent = state.messages.banner.monitor;
     elements.contentFrame.focus();
+    scheduleMonitoringStart(true);
   }
 }
 
