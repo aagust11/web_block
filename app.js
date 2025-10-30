@@ -138,12 +138,9 @@ function applyMessages(messages) {
   if (elements.unlockSubmit) {
     elements.unlockSubmit.textContent = ui.overlayUnlockSubmit;
   }
-  if (elements.unlockHelp) {
-    elements.unlockHelp.textContent = ui.overlayUnlockHelp;
-  }
-
   updateStatuses();
   updateAttemptsInfo();
+  updateUnlockHelp(state.locked ? getActiveUnlockSecret() : null);
 }
 
 function updateAttemptsInfo() {
@@ -214,6 +211,7 @@ function setLocked(isLocked) {
       scheduleMonitoringStart();
     }
   }
+  updateUnlockHelp(state.locked ? getActiveUnlockSecret() : null);
   updateAttemptsInfo();
 }
 
@@ -371,6 +369,45 @@ function unlockUsesAccessCode() {
   return record?.unlock === true;
 }
 
+function updateUnlockHelp(secret) {
+  if (!elements.unlockHelp || !state.messages) {
+    return;
+  }
+
+  if (!state.locked) {
+    elements.unlockHelp.textContent = '';
+    elements.unlockHelp.classList.add('hidden');
+    return;
+  }
+
+  const ui = state.messages.ui;
+  const segments = [];
+
+  if (ui.overlayUnlockLogIntro) {
+    segments.push(ui.overlayUnlockLogIntro);
+  }
+
+  if (secret) {
+    if (unlockUsesAccessCode()) {
+      if (ui.overlayUnlockLogCode) {
+        segments.push(ui.overlayUnlockLogCode);
+      }
+    } else if (ui.overlayUnlockLogSecret) {
+      segments.push(ui.overlayUnlockLogSecret);
+    }
+  }
+
+  const message = segments.join(' ').trim();
+
+  if (message) {
+    elements.unlockHelp.textContent = message;
+    elements.unlockHelp.classList.remove('hidden');
+  } else {
+    elements.unlockHelp.textContent = '';
+    elements.unlockHelp.classList.add('hidden');
+  }
+}
+
 function clearUnlockError() {
   if (!elements.unlockError) return;
   elements.unlockError.textContent = '';
@@ -389,11 +426,7 @@ function refreshUnlockForm() {
   }
   const secret = getActiveUnlockSecret();
   elements.unlockForm.classList.remove('hidden');
-  if (secret) {
-    elements.unlockHelp?.classList.remove('hidden');
-  } else {
-    elements.unlockHelp?.classList.add('hidden');
-  }
+  updateUnlockHelp(secret);
   if (elements.unlockInput) {
     elements.unlockInput.value = '';
   }
