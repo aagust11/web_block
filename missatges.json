@@ -7,7 +7,7 @@
     "unlocked": "Mode desbloquejat"
   },
   "ui": {
-    "headerTitle": "Control d'accés segur",
+    "headerTitle": "contrOwl · Control d'accés segur",
     "accessTitle": "Introdueix el teu codi",
     "accessDescription": "Només els codis autoritzats poden carregar el recurs. Mantingues la pestanya activa i a pantalla completa quan s'obri el visor.",
     "codeLabel": "Codi d'autorització",
