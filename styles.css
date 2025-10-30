@@ -355,6 +355,67 @@ a.primary:active {
   margin: 0;
 }
 
+.lock-overlay__log {
+  display: grid;
+  gap: 0.85rem;
+  text-align: left;
+  padding: 1rem;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  max-height: min(40vh, 320px);
+  overflow-y: auto;
+}
+
+.lock-overlay__log-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.lock-overlay__log-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  flex-shrink: 0;
+}
+
+.lock-overlay__log-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.lock-overlay__log-entry {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.lock-overlay__log-timestamp {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.lock-overlay__log-message {
+  font-size: 0.9rem;
+}
+
+.lock-overlay__log-empty {
+  padding: 0.65rem 0.75rem;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.1);
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.9rem;
+}
+
 .lock-overlay__form {
   display: grid;
   gap: 0.75rem;

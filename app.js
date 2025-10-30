@@ -1,9 +1,12 @@
 const MAX_ATTEMPTS = 5;
 const MONITORING_DELAY_MS = 2_000;
+const LOG_LIMIT = 20;
 const STORAGE_KEYS = {
   attempts: 'wb_attempts',
   locked: 'wb_locked',
-  lastCode: 'wb_last_code'
+  lastCode: 'wb_last_code',
+  log: 'wb_log',
+  lockReason: 'wb_lock_reason'
 };
 
 const elements = {
@@ -18,6 +21,9 @@ const elements = {
   unlockSubmit: document.getElementById('unlockSubmit'),
   unlockError: document.getElementById('unlockError'),
   unlockHelp: document.getElementById('unlockHelp'),
+  lockLog: document.getElementById('lockLog'),
+  lockLogTitle: document.getElementById('lockLogTitle'),
+  lockLogList: document.getElementById('lockLogList'),
   headerTitle: document.getElementById('headerTitle'),
   bannerTitle: document.getElementById('bannerTitle'),
   bannerDescription: document.getElementById('bannerDescription'),
@@ -54,7 +60,9 @@ const state = {
   contentReady: false,
   monitoringEnabled: false,
   monitoringTimer: null,
-  masterKey: null
+  masterKey: null,
+  log: [],
+  lockReason: null
 };
 
 async function fetchMasterKey() {
@@ -105,6 +113,225 @@ function removeStorage(key) {
   }
 }
 
+function readJsonStorage(key) {
+  const rawValue = readStorage(key);
+  if (!rawValue) {
+    return null;
+  }
+  try {
+    return JSON.parse(rawValue);
+  } catch (error) {
+    console.warn('No es pot analitzar el contingut JSON del magatzem local', error);
+    return null;
+  }
+}
+
+function writeJsonStorage(key, value) {
+  let serialised;
+  try {
+    serialised = JSON.stringify(value);
+  } catch (error) {
+    console.warn('No es pot serialitzar el contingut abans de desar-lo', error);
+    return;
+  }
+  writeStorage(key, serialised);
+}
+
+function normaliseMonitoringReasons(input) {
+  if (!input) {
+    return [];
+  }
+  const raw = Array.isArray(input) ? input : String(input).split('+');
+  const cleaned = raw
+    .map((value) => String(value).trim().toLowerCase())
+    .filter((value) => value.length > 0);
+  return Array.from(new Set(cleaned));
+}
+
+function sanitiseLogEntry(entry) {
+  if (!entry || typeof entry !== 'object') {
+    return null;
+  }
+  const { id, type, timestamp, details = {} } = entry;
+  if (typeof type !== 'string' || typeof timestamp !== 'string') {
+    return null;
+  }
+  const safeId = Number.isFinite(id) ? id : Date.now();
+  if (type === 'monitoring') {
+    const reasons = normaliseMonitoringReasons(details.reasons);
+    return { id: safeId, type, timestamp, details: { reasons } };
+  }
+  return { id: safeId, type, timestamp, details: {} };
+}
+
+function normaliseLockContext(context) {
+  if (!context || typeof context !== 'object') {
+    return null;
+  }
+  const { type, details = {} } = context;
+  if (typeof type !== 'string') {
+    return null;
+  }
+  if (type === 'monitoring') {
+    return { type, details: { reasons: normaliseMonitoringReasons(details.reasons) } };
+  }
+  return { type, details: {} };
+}
+
+function loadStoredLog() {
+  const parsed = readJsonStorage(STORAGE_KEYS.log);
+  if (!Array.isArray(parsed)) {
+    return [];
+  }
+  return parsed
+    .map((entry) => sanitiseLogEntry(entry))
+    .filter((entry) => entry != null)
+    .slice(-LOG_LIMIT);
+}
+
+function persistLog() {
+  writeJsonStorage(STORAGE_KEYS.log, state.log);
+}
+
+function addLockLogEntry(type, details = {}) {
+  const entry = {
+    id: Date.now(),
+    type,
+    timestamp: new Date().toISOString(),
+    details: type === 'monitoring' ? { reasons: normaliseMonitoringReasons(details.reasons) } : {}
+  };
+  state.log.push(entry);
+  if (state.log.length > LOG_LIMIT) {
+    state.log = state.log.slice(-LOG_LIMIT);
+  }
+  persistLog();
+  if (state.messages) {
+    renderLockLog();
+  }
+  return entry;
+}
+
+function formatLogTimestamp(value) {
+  if (!value) {
+    return '';
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  try {
+    return date.toLocaleTimeString(navigator.language, {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  } catch (error) {
+    return date.toISOString();
+  }
+}
+
+function getMonitoringMessages(reasons) {
+  const ui = state.messages?.ui;
+  if (!ui) {
+    return [];
+  }
+  const dictionary = {
+    visibility: ui.overlayLogMonitoringVisibility,
+    'visibility-check': ui.overlayLogMonitoringVisibility,
+    focus: ui.overlayLogMonitoringFocus,
+    'focus-check': ui.overlayLogMonitoringFocus,
+    'focus-change': ui.overlayLogMonitoringFocusChange,
+    'frame-focus-check': ui.overlayLogMonitoringFrame,
+    'monitoring-check': ui.overlayLogMonitoringGeneric
+  };
+
+  const resolved = [];
+  reasons.forEach((reason) => {
+    const message = dictionary[reason] ?? ui.overlayLogMonitoringGeneric;
+    if (message) {
+      resolved.push(message);
+    }
+  });
+
+  if (resolved.length === 0 && ui.overlayLogMonitoringGeneric) {
+    resolved.push(ui.overlayLogMonitoringGeneric);
+  }
+
+  return Array.from(new Set(resolved));
+}
+
+function getLogMessageForEntry(entry) {
+  const ui = state.messages?.ui;
+  if (!ui || !entry) {
+    return '';
+  }
+  if (entry.type === 'attempts') {
+    return ui.overlayLogAttempts ?? '';
+  }
+  if (entry.type === 'monitoring') {
+    const reasons = Array.isArray(entry.details?.reasons)
+      ? entry.details.reasons
+      : [];
+    return getMonitoringMessages(reasons).join(' · ');
+  }
+  return ui.overlayLogMonitoringGeneric ?? '';
+}
+
+function renderLockLog() {
+  if (!elements.lockLogList || !state.messages) {
+    return;
+  }
+
+  const { ui } = state.messages;
+  if (elements.lockLogTitle) {
+    elements.lockLogTitle.textContent = ui.overlayLogTitle ?? '';
+  }
+  elements.lockLogList.innerHTML = '';
+
+  const entries = [...state.log].sort((a, b) => b.id - a.id);
+  if (entries.length === 0) {
+    const emptyItem = document.createElement('li');
+    emptyItem.className = 'lock-overlay__log-empty';
+    emptyItem.textContent = ui.overlayLogEmpty ?? '';
+    elements.lockLogList.append(emptyItem);
+    return;
+  }
+
+  entries.forEach((entry) => {
+    const item = document.createElement('li');
+    item.className = 'lock-overlay__log-entry';
+
+    const timestamp = document.createElement('span');
+    timestamp.className = 'lock-overlay__log-timestamp';
+    timestamp.textContent = formatLogTimestamp(entry.timestamp);
+
+    const message = document.createElement('span');
+    message.className = 'lock-overlay__log-message';
+    message.textContent = getLogMessageForEntry(entry);
+
+    item.append(timestamp, message);
+    elements.lockLogList.append(item);
+  });
+}
+
+function updateLockOverlayContent() {
+  if (!state.messages) {
+    return;
+  }
+
+  const ui = state.messages.ui;
+  const reasonType = state.lockReason?.type;
+  if (reasonType === 'attempts') {
+    elements.lockTitle.textContent = ui.overlayLockedAttemptsTitle ?? ui.overlayLockedTitle;
+    elements.lockDescription.textContent = ui.overlayLockedAttemptsDescription ?? ui.overlayLockedDescription;
+  } else {
+    elements.lockTitle.textContent = ui.overlayLockedTitle ?? '';
+    elements.lockDescription.textContent = ui.overlayLockedDescription ?? '';
+  }
+
+  renderLockLog();
+}
+
 function applyMessages(messages) {
   state.messages = messages;
   const ui = messages.ui;
@@ -141,6 +368,7 @@ function applyMessages(messages) {
   updateStatuses();
   updateAttemptsInfo();
   updateUnlockHelp(state.locked ? getActiveUnlockSecret() : null);
+  updateLockOverlayContent();
 }
 
 function updateAttemptsInfo() {
@@ -192,17 +420,26 @@ function scheduleMonitoringStart(immediate = false) {
   }, MONITORING_DELAY_MS);
 }
 
-function setLocked(isLocked) {
+function setLocked(isLocked, context = null) {
   state.locked = isLocked;
   if (isLocked) {
+    const normalisedContext = normaliseLockContext(context);
+    state.lockReason = normalisedContext;
     writeStorage(STORAGE_KEYS.locked, 'true');
+    if (normalisedContext) {
+      writeJsonStorage(STORAGE_KEYS.lockReason, normalisedContext);
+    } else {
+      removeStorage(STORAGE_KEYS.lockReason);
+    }
     elements.lockBadge.textContent = state.messages?.banner.locked ?? 'Bloquejat';
     elements.lockOverlay.classList.remove('hidden');
     elements.monitorBadge.textContent = state.messages?.ui.monitorBadgeFallback ?? elements.monitorBadge.textContent;
     disableMonitoring();
     refreshUnlockForm();
   } else {
+    state.lockReason = null;
     removeStorage(STORAGE_KEYS.locked);
+    removeStorage(STORAGE_KEYS.lockReason);
     elements.lockBadge.textContent = state.messages?.banner.unlocked ?? 'Desbloquejat';
     elements.lockOverlay.classList.add('hidden');
     elements.monitorBadge.textContent = state.messages?.banner.monitor ?? elements.monitorBadge.textContent;
@@ -213,6 +450,7 @@ function setLocked(isLocked) {
   }
   updateUnlockHelp(state.locked ? getActiveUnlockSecret() : null);
   updateAttemptsInfo();
+  updateLockOverlayContent();
 }
 
 function resetViewer() {
@@ -236,8 +474,10 @@ function engageLock(reason = '') {
   if (!state.viewerActive || state.locked || !state.monitoringEnabled) {
     return;
   }
+  const reasons = normaliseMonitoringReasons(reason);
   console.warn('Activant bloqueig per', reason);
-  setLocked(true);
+  addLockLogEntry('monitoring', { reasons });
+  setLocked(true, { type: 'monitoring', details: { reasons } });
 }
 
 function updateStatuses() {
@@ -255,6 +495,12 @@ function updateStatuses() {
 }
 
 function initialiseState() {
+  state.log = loadStoredLog();
+  const storedLockReason = normaliseLockContext(readJsonStorage(STORAGE_KEYS.lockReason));
+  if (storedLockReason) {
+    state.lockReason = storedLockReason;
+  }
+
   const storedAttempts = Number.parseInt(readStorage(STORAGE_KEYS.attempts) ?? '', 10);
   if (!Number.isNaN(storedAttempts) && storedAttempts >= 0 && storedAttempts <= MAX_ATTEMPTS) {
     state.attemptsLeft = storedAttempts;
@@ -300,7 +546,8 @@ function handleSubmit(event) {
     updateAttemptsInfo();
     if (state.attemptsLeft <= 0) {
       showError(state.messages.ui.errorAttempts);
-      setLocked(true);
+      addLockLogEntry('attempts');
+      setLocked(true, { type: 'attempts' });
     } else {
       showError(state.messages.ui.errorInvalid);
     }
