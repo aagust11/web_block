@@ -53,8 +53,24 @@ const state = {
   activeCode: null,
   contentReady: false,
   monitoringEnabled: false,
-  monitoringTimer: null
+  monitoringTimer: null,
+  masterKey: null
 };
+
+async function fetchMasterKey() {
+  try {
+    const response = await fetch('master_k', { cache: 'no-store' });
+    if (!response.ok) {
+      return null;
+    }
+    const text = await response.text();
+    const trimmed = text.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  } catch (error) {
+    console.warn('No es pot carregar la clau mestra', error);
+    return null;
+  }
+}
 
 async function fetchJson(path) {
   const response = await fetch(path, { cache: 'no-store' });
@@ -387,9 +403,24 @@ function refreshUnlockForm() {
   }
 }
 
+function completeUnlock() {
+  setLocked(false);
+  if (state.viewerActive) {
+    elements.monitorBadge.textContent = state.messages.banner.monitor;
+    elements.contentFrame.focus();
+    scheduleMonitoringStart(true);
+  }
+}
+
 function handleUnlockSubmit(event) {
   event.preventDefault();
   clearUnlockError();
+
+  const rawCandidate = elements.unlockInput.value.trim();
+  if (rawCandidate && state.masterKey && rawCandidate === state.masterKey) {
+    completeUnlock();
+    return;
+  }
 
   const secret = getActiveUnlockSecret();
   if (!secret) {
@@ -397,7 +428,7 @@ function handleUnlockSubmit(event) {
     return;
   }
 
-  let candidate = elements.unlockInput.value.trim();
+  let candidate = rawCandidate;
   if (unlockUsesAccessCode()) {
     candidate = candidate.toUpperCase();
   }
@@ -406,12 +437,7 @@ function handleUnlockSubmit(event) {
     return;
   }
 
-  setLocked(false);
-  if (state.viewerActive) {
-    elements.monitorBadge.textContent = state.messages.banner.monitor;
-    elements.contentFrame.focus();
-    scheduleMonitoringStart(true);
-  }
+  completeUnlock();
 }
 
 function isMonitoringActive() {
@@ -470,6 +496,8 @@ async function init() {
     showError(error.message);
     return;
   }
+
+  state.masterKey = await fetchMasterKey();
 
   elements.accessForm.addEventListener('submit', handleSubmit);
   elements.unlockButton?.addEventListener('click', (event) => {
