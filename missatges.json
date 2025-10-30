@@ -1,10 +1,10 @@
 {
   "banner": {
     "title": "Supervisió de l'accés",
-    "description": "Aquesta pàgina controla l'obertura de recursos protegits i n'informa l'estat en temps real.",
-    "monitor": "Monitoratge actiu",
-    "locked": "Mode bloquejat",
-    "unlocked": "Mode desbloquejat"
+    "description": "Registre i notificació dels bloquejos d'accés en temps real.",
+    "monitor": "Registre actiu",
+    "locked": "Bloqueig registrat",
+    "unlocked": "Monitoratge disponible"
   },
   "ui": {
     "headerTitle": "contrOwl · Control d'accés segur",
@@ -25,7 +25,9 @@
     "overlayUnlockLabel": "Introdueix la clau de desbloqueig",
     "overlayUnlockPlaceholder": "Contrasenya o codi",
     "overlayUnlockSubmit": "Desbloqueja i continua",
-    "overlayUnlockHelp": "Si el valor \"unlock\" del teu codi és true, torna a escriure el mateix codi d'accés. Si és una cadena, introdueix la contrasenya definida a codes.json.",
+    "overlayUnlockLogIntro": "Aquest bloqueig s'ha registrat al log de seguretat per garantir la traçabilitat.",
+    "overlayUnlockLogCode": "Repeteix el codi d'accés per tancar la incidència al registre.",
+    "overlayUnlockLogSecret": "Introdueix la clau de desbloqueig assignada per reobrir la sessió.",
     "overlayUnlockError": "El codi de desbloqueig no és correcte.",
     "overlayUnlockUnavailable": "Aquest recurs no disposa de clau de desbloqueig. Torna a la pantalla d'accés.",
     "errorInvalid": "El codi introduït no és vàlid.",
@@ -40,6 +42,6 @@
     "statusFullscreen": "Pantalla completa",
     "statusFullscreenOn": "Activa",
     "statusFullscreenOff": "Inactiva",
-    "monitorBadgeFallback": "Monitoratge pausat"
+    "monitorBadgeFallback": "Registre pausat"
   }
 }
