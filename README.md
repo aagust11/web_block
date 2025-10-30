@@ -1,6 +1,6 @@
-# web_block
+# contrOwl
 
-Aplicació web senzilla per controlar l'accés a recursos externs mitjançant codis d'autorització i monitoratge de la pestanya activa.
+contrOwl és una aplicació web senzilla per controlar l'accés a recursos externs mitjançant codis d'autorització i monitoratge de la pestanya activa.
 
 ## Funcionament
 
