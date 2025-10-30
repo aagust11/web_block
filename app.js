@@ -168,11 +168,7 @@ function scheduleMonitoringStart(immediate = false) {
 
   if (immediate) {
     state.monitoringEnabled = true;
-    window.requestAnimationFrame(() => {
-      if (state.monitoringEnabled) {
-        enforceMonitoringState();
-      }
-    });
+    enforceMonitoringState();
     return;
   }
 
