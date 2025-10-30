@@ -112,7 +112,31 @@ body.viewer-active .viewer__frame iframe {
 }
 
 .app-header__logo {
-  font-size: 1.75rem;
+  width: 3rem;
+  height: 3rem;
+  display: block;
+  border-radius: 0.75rem;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.4);
+  object-fit: cover;
+}
+
+.app-header__titles {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.app-header__name {
+  margin: 0;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.app-header__tagline {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.95rem;
 }
 
 main {
