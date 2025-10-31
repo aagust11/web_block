@@ -367,7 +367,11 @@ function applyMessages(messages) {
   }
   updateStatuses();
   updateAttemptsInfo();
-  updateUnlockHelp(state.locked ? getActiveUnlockSecret() : null);
+  if (state.locked) {
+    refreshUnlockForm();
+  } else {
+    updateUnlockHelp(null);
+  }
   updateLockOverlayContent();
 }
 
@@ -696,19 +700,22 @@ function handleUnlockSubmit(event) {
   event.preventDefault();
   clearUnlockError();
 
-  const rawCandidate = elements.unlockInput.value.trim();
-  if (rawCandidate && state.masterKey && rawCandidate === state.masterKey) {
+  const inputValue = elements.unlockInput?.value ?? '';
+  const trimmedCandidate = inputValue.trim();
+  const hasMasterKey = typeof state.masterKey === 'string' && state.masterKey.length > 0;
+
+  if (hasMasterKey && trimmedCandidate === state.masterKey) {
     completeUnlock();
     return;
   }
 
   const secret = getActiveUnlockSecret();
   if (!secret) {
-    showUnlockError(state.messages.ui.overlayUnlockUnavailable);
+    showUnlockError(hasMasterKey ? state.messages.ui.overlayUnlockError : state.messages.ui.overlayUnlockUnavailable);
     return;
   }
 
-  let candidate = rawCandidate;
+  let candidate = trimmedCandidate;
   if (unlockUsesAccessCode()) {
     candidate = candidate.toUpperCase();
   }
