@@ -1,12 +1,15 @@
 const MAX_ATTEMPTS = 5;
 const MONITORING_DELAY_MS = 2_000;
 const LOG_LIMIT = 20;
+const SUPPORTED_LANGUAGES = ['ca', 'es'];
+const DEFAULT_LANGUAGE = 'ca';
 const STORAGE_KEYS = {
   attempts: 'wb_attempts',
   locked: 'wb_locked',
   lastCode: 'wb_last_code',
   log: 'wb_log',
-  lockReason: 'wb_lock_reason'
+  lockReason: 'wb_lock_reason',
+  language: 'wb_language'
 };
 
 const elements = {
@@ -47,7 +50,8 @@ const elements = {
   fallback: document.getElementById('fallback'),
   fallbackTitle: document.getElementById('fallbackTitle'),
   fallbackDescription: document.getElementById('fallbackDescription'),
-  fallbackLink: document.getElementById('fallbackLink')
+  fallbackLink: document.getElementById('fallbackLink'),
+  languageSelect: document.getElementById('languageSelect')
 };
 
 const state = {
@@ -62,7 +66,9 @@ const state = {
   monitoringTimer: null,
   masterKey: null,
   log: [],
-  lockReason: null
+  lockReason: null,
+  language: DEFAULT_LANGUAGE,
+  messageCache: {}
 };
 
 async function fetchMasterKey() {
@@ -137,6 +143,20 @@ function writeJsonStorage(key, value) {
   writeStorage(key, serialised);
 }
 
+function normaliseLanguage(language) {
+  if (!language) {
+    return DEFAULT_LANGUAGE;
+  }
+
+  const normalised = String(language).toLowerCase();
+  if (SUPPORTED_LANGUAGES.includes(normalised)) {
+    return normalised;
+  }
+
+  const matching = SUPPORTED_LANGUAGES.find((entry) => normalised.startsWith(entry));
+  return matching ?? DEFAULT_LANGUAGE;
+}
+
 function normaliseMonitoringReasons(input) {
   if (!input) {
     return [];
@@ -176,6 +196,35 @@ function normaliseLockContext(context) {
     return { type, details: { reasons: normaliseMonitoringReasons(details.reasons) } };
   }
   return { type, details: {} };
+}
+
+async function loadLanguageMessages(language) {
+  const targetLanguage = normaliseLanguage(language);
+  if (state.messageCache[targetLanguage]) {
+    return state.messageCache[targetLanguage];
+  }
+
+  const path = `missatges.${targetLanguage}.json`;
+  const messages = await fetchJson(path);
+  state.messageCache[targetLanguage] = messages;
+  return messages;
+}
+
+async function applyLanguage(language, { persist = true } = {}) {
+  const targetLanguage = normaliseLanguage(language);
+  const messages = await loadLanguageMessages(targetLanguage);
+
+  state.language = targetLanguage;
+  if (persist) {
+    writeStorage(STORAGE_KEYS.language, targetLanguage);
+  }
+
+  document.documentElement.setAttribute('lang', targetLanguage);
+  if (elements.languageSelect) {
+    elements.languageSelect.value = targetLanguage;
+  }
+
+  applyMessages(messages);
 }
 
 function loadStoredLog() {
@@ -220,7 +269,8 @@ function formatLogTimestamp(value) {
     return value;
   }
   try {
-    return date.toLocaleTimeString(navigator.language, {
+    const locale = state.language || navigator.language || 'en';
+    return date.toLocaleTimeString(locale, {
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit'
@@ -335,12 +385,17 @@ function updateLockOverlayContent() {
 function applyMessages(messages) {
   state.messages = messages;
   const ui = messages.ui;
+  const banner = messages.banner;
 
   elements.headerTitle.textContent = ui.headerTitle;
-  elements.bannerTitle.textContent = messages.banner.title;
-  elements.bannerDescription.textContent = messages.banner.description;
-  elements.monitorBadge.textContent = messages.banner.monitor;
-  elements.lockBadge.textContent = messages.banner.locked;
+  elements.bannerTitle.textContent = banner.title;
+  elements.bannerDescription.textContent = banner.description;
+  if (state.locked) {
+    elements.monitorBadge.textContent = ui.monitorBadgeFallback ?? banner.monitor;
+  } else {
+    elements.monitorBadge.textContent = banner.monitor;
+  }
+  elements.lockBadge.textContent = state.locked ? banner.locked : banner.unlocked;
 
   elements.accessTitle.textContent = ui.accessTitle;
   elements.accessDescription.textContent = ui.accessDescription;
@@ -499,6 +554,16 @@ function updateStatuses() {
 }
 
 function initialiseState() {
+  const storedLanguage = readStorage(STORAGE_KEYS.language);
+  const browserLanguage = navigator?.language;
+  const htmlLanguage = document.documentElement.getAttribute('lang');
+  const initialLanguage = normaliseLanguage(storedLanguage ?? htmlLanguage ?? browserLanguage ?? DEFAULT_LANGUAGE);
+  state.language = initialLanguage;
+  document.documentElement.setAttribute('lang', initialLanguage);
+  if (elements.languageSelect) {
+    elements.languageSelect.value = initialLanguage;
+  }
+
   state.log = loadStoredLog();
   const storedLockReason = normaliseLockContext(readJsonStorage(STORAGE_KEYS.lockReason));
   if (storedLockReason) {
@@ -526,6 +591,20 @@ function initialiseState() {
 
 function persistAttempts() {
   writeStorage(STORAGE_KEYS.attempts, String(state.attemptsLeft));
+}
+
+async function handleLanguageChange(event) {
+  const target = event.target;
+  const value = target?.value ?? state.language;
+  try {
+    await applyLanguage(value);
+    clearError();
+  } catch (error) {
+    showError(error.message);
+    if (target) {
+      target.value = state.language;
+    }
+  }
 }
 
 function handleSubmit(event) {
@@ -776,9 +855,9 @@ async function init() {
   initialiseState();
 
   try {
-    const [messages, codes] = await Promise.all([fetchJson('missatges.json'), fetchJson('codes.json')]);
-    state.codes = codes;
-    applyMessages(messages);
+    const codesPromise = fetchJson('codes.json');
+    await applyLanguage(state.language, { persist: true });
+    state.codes = await codesPromise;
   } catch (error) {
     showError(error.message);
     return;
@@ -786,6 +865,7 @@ async function init() {
 
   state.masterKey = await fetchMasterKey();
 
+  elements.languageSelect?.addEventListener('change', handleLanguageChange);
   elements.accessForm.addEventListener('submit', handleSubmit);
   elements.unlockButton?.addEventListener('click', (event) => {
     event.preventDefault();
