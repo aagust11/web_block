@@ -2,9 +2,9 @@
   "banner": {
     "title": "Supervisió de l'accés",
     "description": "Registre i notificació dels bloquejos d'accés en temps real.",
-    "monitor": "Registre actiu",
+    "monitor": "INFORMANT DE MONITORATGE ACTIU",
     "locked": "Bloqueig registrat",
-    "unlocked": "Monitoratge disponible"
+    "unlocked": ""
   },
   "ui": {
     "headerTitle": "contrOwl · Control d'accés segur",
@@ -12,7 +12,7 @@
     "accessDescription": "Només els codis autoritzats poden carregar el recurs. Mantingues la pestanya activa i a pantalla completa quan s'obri el visor.",
     "codeLabel": "Codi d'autorització",
     "codePlaceholder": "Escriu el codi en majúscules",
-    "submit": "Obrir recurs",
+    "submit": "accedeix",
     "attempts": "Tens {count} intents restants.",
     "attemptsLocked": "Has superat el nombre màxim d'intents. Espera o demana assistència.",
     "viewerTitle": "Visor de contingut",
@@ -52,6 +52,7 @@
     "statusFullscreen": "Pantalla completa",
     "statusFullscreenOn": "Activa",
     "statusFullscreenOff": "Inactiva",
-    "monitorBadgeFallback": "Registre pausat"
+    "monitorBadgeFallback": "Registre pausat",
+    "monitoringBarExit": "Tanca monitoratge"
   }
 }

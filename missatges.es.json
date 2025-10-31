@@ -2,9 +2,9 @@
   "banner": {
     "title": "Supervisión del acceso",
     "description": "Registro y notificación de bloqueos de acceso en tiempo real.",
-    "monitor": "Registro activo",
+    "monitor": "INFORMANDO DE MONITORIZACIÓN ACTIVA",
     "locked": "Bloqueo registrado",
-    "unlocked": "Monitorización disponible"
+    "unlocked": ""
   },
   "ui": {
     "headerTitle": "contrOwl · Control de acceso seguro",
@@ -12,7 +12,7 @@
     "accessDescription": "Solo los códigos autorizados pueden cargar el recurso. Mantén la pestaña activa y en pantalla completa cuando se abra el visor.",
     "codeLabel": "Código de autorización",
     "codePlaceholder": "Escribe el código en mayúsculas",
-    "submit": "Abrir recurso",
+    "submit": "accede",
     "attempts": "Te quedan {count} intentos.",
     "attemptsLocked": "Has superado el número máximo de intentos. Espera o solicita asistencia.",
     "viewerTitle": "Visor de contenido",
@@ -52,6 +52,7 @@
     "statusFullscreen": "Pantalla completa",
     "statusFullscreenOn": "Activa",
     "statusFullscreenOff": "Inactiva",
-    "monitorBadgeFallback": "Registro en pausa"
+    "monitorBadgeFallback": "Registro en pausa",
+    "monitoringBarExit": "Cerrar monitorización"
   }
 }

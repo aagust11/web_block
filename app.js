@@ -14,6 +14,9 @@ const STORAGE_KEYS = {
 
 const elements = {
   appHeader: document.querySelector('.app-header'),
+  monitoringBar: document.getElementById('monitoringBar'),
+  monitoringBarMessage: document.getElementById('monitoringBarMessage'),
+  monitoringBarExit: document.getElementById('monitoringBarExit'),
   lockOverlay: document.getElementById('lockOverlay'),
   lockTitle: document.getElementById('lockTitle'),
   lockDescription: document.getElementById('lockDescription'),
@@ -141,6 +144,34 @@ function writeJsonStorage(key, value) {
     return;
   }
   writeStorage(key, serialised);
+}
+
+function normaliseDisplayText(value) {
+  if (typeof value !== 'string') {
+    return '';
+  }
+  const trimmed = value.trim();
+  return trimmed;
+}
+
+function setBadgeText(element, text) {
+  if (!element) {
+    return;
+  }
+  const content = normaliseDisplayText(text);
+  element.textContent = content;
+  element.classList.toggle('hidden', content.length === 0);
+}
+
+function setMonitoringMessage(text) {
+  const content = normaliseDisplayText(text);
+  if (elements.monitorBadge) {
+    elements.monitorBadge.textContent = content;
+    elements.monitorBadge.classList.toggle('hidden', content.length === 0);
+  }
+  if (elements.monitoringBarMessage) {
+    elements.monitoringBarMessage.textContent = content;
+  }
 }
 
 function normaliseLanguage(language) {
@@ -391,11 +422,11 @@ function applyMessages(messages) {
   elements.bannerTitle.textContent = banner.title;
   elements.bannerDescription.textContent = banner.description;
   if (state.locked) {
-    elements.monitorBadge.textContent = ui.monitorBadgeFallback ?? banner.monitor;
+    setMonitoringMessage(ui.monitorBadgeFallback ?? banner.monitor);
   } else {
-    elements.monitorBadge.textContent = banner.monitor;
+    setMonitoringMessage(banner.monitor);
   }
-  elements.lockBadge.textContent = state.locked ? banner.locked : banner.unlocked;
+  setBadgeText(elements.lockBadge, state.locked ? banner.locked : banner.unlocked);
 
   elements.accessTitle.textContent = ui.accessTitle;
   elements.accessDescription.textContent = ui.accessDescription;
@@ -403,6 +434,12 @@ function applyMessages(messages) {
   elements.codeInput.setAttribute('placeholder', ui.codePlaceholder);
   elements.submitButton.textContent = ui.submit;
   elements.viewerTitle.textContent = ui.viewerTitle;
+
+  if (elements.monitoringBarExit) {
+    const exitLabel = normaliseDisplayText(ui.monitoringBarExit ?? '');
+    elements.monitoringBarExit.textContent = exitLabel;
+    elements.monitoringBarExit.classList.toggle('hidden', exitLabel.length === 0);
+  }
 
   elements.fallbackTitle.textContent = ui.fallbackTitle;
   elements.fallbackDescription.textContent = ui.fallbackDescription;
@@ -490,18 +527,18 @@ function setLocked(isLocked, context = null) {
     } else {
       removeStorage(STORAGE_KEYS.lockReason);
     }
-    elements.lockBadge.textContent = state.messages?.banner.locked ?? 'Bloquejat';
+    setBadgeText(elements.lockBadge, state.messages?.banner.locked ?? 'Bloquejat');
     elements.lockOverlay.classList.remove('hidden');
-    elements.monitorBadge.textContent = state.messages?.ui.monitorBadgeFallback ?? elements.monitorBadge.textContent;
+    setMonitoringMessage(state.messages?.ui.monitorBadgeFallback ?? '');
     disableMonitoring();
     refreshUnlockForm();
   } else {
     state.lockReason = null;
     removeStorage(STORAGE_KEYS.locked);
     removeStorage(STORAGE_KEYS.lockReason);
-    elements.lockBadge.textContent = state.messages?.banner.unlocked ?? 'Desbloquejat';
+    setBadgeText(elements.lockBadge, state.messages?.banner.unlocked ?? 'Desbloquejat');
     elements.lockOverlay.classList.add('hidden');
-    elements.monitorBadge.textContent = state.messages?.banner.monitor ?? elements.monitorBadge.textContent;
+    setMonitoringMessage(state.messages?.banner.monitor ?? '');
     clearUnlockError();
     if (state.viewerActive) {
       scheduleMonitoringStart();
@@ -525,6 +562,7 @@ function resetViewer() {
   removeStorage(STORAGE_KEYS.lastCode);
   disableMonitoring();
   clearError();
+  setMonitoringMessage(state.messages?.banner.monitor ?? '');
   elements.appHeader?.classList.remove('hidden');
   elements.codeInput.focus();
 }
@@ -660,14 +698,14 @@ function handleSubmit(event) {
 
 function handleFrameError() {
   elements.fallback.classList.remove('hidden');
-  elements.monitorBadge.textContent = state.messages.ui.monitorBadgeFallback;
+  setMonitoringMessage(state.messages.ui.monitorBadgeFallback);
   state.contentReady = false;
   disableMonitoring();
 }
 
 function handleFrameLoad() {
   elements.fallback.classList.add('hidden');
-  elements.monitorBadge.textContent = state.messages.banner.monitor;
+  setMonitoringMessage(state.messages.banner.monitor);
   state.contentReady = true;
   scheduleMonitoringStart();
 }
@@ -769,7 +807,7 @@ function refreshUnlockForm() {
 function completeUnlock() {
   setLocked(false);
   if (state.viewerActive) {
-    elements.monitorBadge.textContent = state.messages.banner.monitor;
+    setMonitoringMessage(state.messages.banner.monitor);
     elements.contentFrame.focus();
     scheduleMonitoringStart(true);
   }
@@ -831,7 +869,7 @@ function enforceMonitoringState() {
     return;
   }
 
-  elements.monitorBadge.textContent = ui.monitorBadgeFallback ?? elements.monitorBadge.textContent;
+  setMonitoringMessage(ui.monitorBadgeFallback ?? '');
 
   const reasons = [];
   if (!tabVisible) {
@@ -848,7 +886,11 @@ function enforceMonitoringState() {
 }
 
 function applyViewerLayout(isActive) {
-  document.body.classList.toggle('viewer-active', Boolean(isActive));
+  const active = Boolean(isActive);
+  document.body.classList.toggle('viewer-active', active);
+  if (elements.monitoringBar) {
+    elements.monitoringBar.classList.toggle('hidden', !active);
+  }
 }
 
 async function init() {
@@ -867,6 +909,9 @@ async function init() {
 
   elements.languageSelect?.addEventListener('change', handleLanguageChange);
   elements.accessForm.addEventListener('submit', handleSubmit);
+  elements.monitoringBarExit?.addEventListener('click', () => {
+    resetViewer();
+  });
   elements.unlockButton?.addEventListener('click', (event) => {
     event.preventDefault();
     if (elements.unlockInput && !elements.unlockForm?.classList.contains('hidden')) {
@@ -884,10 +929,10 @@ async function init() {
       return;
     }
     if (document.visibilityState !== 'visible') {
-      elements.monitorBadge.textContent = state.messages.ui.monitorBadgeFallback;
+      setMonitoringMessage(state.messages.ui.monitorBadgeFallback);
       engageLock('visibility');
     } else {
-      elements.monitorBadge.textContent = state.messages.banner.monitor;
+      setMonitoringMessage(state.messages.banner.monitor);
     }
   });
 
@@ -896,14 +941,14 @@ async function init() {
     if (!isMonitoringActive()) {
       return;
     }
-    elements.monitorBadge.textContent = state.messages.ui.monitorBadgeFallback;
+    setMonitoringMessage(state.messages.ui.monitorBadgeFallback);
     engageLock('focus');
   });
 
   window.addEventListener('focus', () => {
     updateStatuses();
     if (!state.locked && state.viewerActive) {
-      elements.monitorBadge.textContent = state.messages.banner.monitor;
+      setMonitoringMessage(state.messages.banner.monitor);
     }
   });
 
@@ -913,7 +958,7 @@ async function init() {
       return;
     }
     if (document.activeElement !== elements.contentFrame) {
-      elements.monitorBadge.textContent = state.messages.ui.monitorBadgeFallback;
+      setMonitoringMessage(state.messages.ui.monitorBadgeFallback);
       engageLock('focus-change');
     }
   });
@@ -923,11 +968,11 @@ async function init() {
   });
 
   if (state.locked) {
-    elements.lockBadge.textContent = state.messages.banner.locked;
+    setBadgeText(elements.lockBadge, state.messages.banner.locked);
     elements.lockOverlay.classList.remove('hidden');
     refreshUnlockForm();
   } else {
-    elements.lockBadge.textContent = state.messages.banner.unlocked;
+    setBadgeText(elements.lockBadge, state.messages.banner.unlocked);
   }
 
   elements.codeInput.focus();
