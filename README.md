@@ -38,3 +38,17 @@ Exemple de fitxer:
 ## Personalització de textos
 
 Els missatges i etiquetes de la interfície s'especifiquen a `missatges.json`. S'hi han afegit textos específics per descriure el comportament del camp `unlock` i les instruccions del formulari de desbloqueig.
+
+## Verificació manual
+
+Per assegurar que la clau mestra restaura l'accés en tots els escenaris de bloqueig:
+
+1. **Bloqueig per monitoratge**
+   - Obre un recurs amb un codi vàlid que activi el visor.
+   - Quan el contingut estigui carregat, canvia de pestanya o minimitza la finestra per activar el bloqueig.
+   - Quan aparegui el diàleg de bloqueig, introdueix la clau definida al fitxer `master_k` i comprova que el visor es reactiva immediatament.
+
+2. **Bloqueig per intents exhaurits**
+   - A la pantalla d'accés introdueix codis incorrectes fins que s'esgotin els intents disponibles.
+   - Verifica que el formulari de desbloqueig es mostri i accepti l'entrada.
+   - Introdueix la clau del fitxer `master_k` i comprova que el bloqueig desapareix i es restableixen els intents.
