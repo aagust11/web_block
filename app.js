@@ -909,9 +909,23 @@ async function init() {
 
   elements.languageSelect?.addEventListener('change', handleLanguageChange);
   elements.accessForm.addEventListener('submit', handleSubmit);
-  elements.monitoringBarExit?.addEventListener('click', () => {
-    resetViewer();
-  });
+  if (elements.monitoringBarExit) {
+    const prepareMonitoringExit = () => {
+      if (!state.viewerActive) {
+        return;
+      }
+      disableMonitoring();
+    };
+
+    elements.monitoringBarExit.addEventListener('pointerdown', prepareMonitoringExit);
+    elements.monitoringBarExit.addEventListener('mousedown', prepareMonitoringExit);
+    elements.monitoringBarExit.addEventListener('focus', prepareMonitoringExit);
+    elements.monitoringBarExit.addEventListener('click', (event) => {
+      event.preventDefault();
+      prepareMonitoringExit();
+      resetViewer();
+    });
+  }
   elements.unlockButton?.addEventListener('click', (event) => {
     event.preventDefault();
     if (elements.unlockInput && !elements.unlockForm?.classList.contains('hidden')) {
@@ -955,6 +969,10 @@ async function init() {
   document.addEventListener('focusin', () => {
     updateStatuses();
     if (!isMonitoringActive()) {
+      return;
+    }
+    if (document.activeElement === elements.monitoringBarExit) {
+      disableMonitoring();
       return;
     }
     if (document.activeElement !== elements.contentFrame) {
