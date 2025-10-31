@@ -9,6 +9,28 @@
     <link rel="icon" href="src/contrOwl.ico?v=2">
   </head>
   <body>
+    <div
+      id="monitoringBar"
+      class="monitoring-bar hidden"
+      role="status"
+      aria-live="polite"
+    >
+      <div class="monitoring-bar__info">
+        <img
+          src="src/contrOwl_red.png"
+          alt=""
+          class="monitoring-bar__icon"
+          aria-hidden="true"
+        />
+        <span id="monitoringBarMessage" class="monitoring-bar__message"></span>
+      </div>
+      <button
+        id="monitoringBarExit"
+        type="button"
+        class="monitoring-bar__exit"
+      ></button>
+    </div>
+
     <div id="lockOverlay" class="lock-overlay hidden" role="alertdialog" aria-modal="true" aria-labelledby="lockTitle" aria-describedby="lockDescription">
       <div class="lock-overlay__content">
         <h2 id="lockTitle"></h2>

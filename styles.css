@@ -56,6 +56,66 @@ body.viewer-active main {
   overflow: hidden;
 }
 
+.monitoring-bar {
+  position: sticky;
+  top: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  background: rgba(185, 28, 28, 0.95);
+  color: #ffffff;
+  min-height: 20px;
+  padding: 0 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  z-index: 50;
+}
+
+.monitoring-bar__info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  min-height: inherit;
+}
+
+.monitoring-bar__icon {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
+
+.monitoring-bar__message {
+  flex: 1;
+}
+
+.monitoring-bar__exit {
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: transparent;
+  color: inherit;
+  border-radius: 999px;
+  padding: 0.1rem 0.75rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.monitoring-bar__exit:hover,
+.monitoring-bar__exit:focus {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.monitoring-bar__exit:focus {
+  outline: 2px solid rgba(255, 255, 255, 0.6);
+  outline-offset: 2px;
+}
+
 body.viewer-active #viewer {
   background: transparent;
   border: none;
