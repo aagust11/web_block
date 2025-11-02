@@ -419,6 +419,9 @@ function getLogMessageForEntry(entry) {
   if (entry.type === 'stream') {
     return ui.overlayLogStream ?? ui.overlayLogMonitoringGeneric ?? '';
   }
+  if (entry.type === 'stream-required') {
+    return ui.overlayLogStreamRequired ?? ui.overlayLogMonitoringGeneric ?? '';
+  }
   return ui.overlayLogMonitoringGeneric ?? '';
 }
 
@@ -720,13 +723,18 @@ async function requestScreenStream() {
 
 async function initialisePeerSession() {
   if (!state.viewerActive) {
-    return;
+    return null;
   }
 
   if (!canUsePeer()) {
     setPeerStatus(PEER_STATUS.unavailable);
-    return;
+    return null;
   }
+
+  const shouldAnnounceStreamFailure = () => {
+    const accessHidden = elements.accessScreen ? elements.accessScreen.classList.contains('hidden') : false;
+    return state.viewerActive && accessHidden;
+  };
 
   if (state.peer) {
     destroyPeerSession(null);
@@ -799,6 +807,9 @@ async function initialisePeerSession() {
     state.peerCall = null;
     state.peerStream = null;
     destroyPeerSession(PEER_STATUS.error, state.lockReason);
+    if (shouldAnnounceStreamFailure()) {
+      handleStreamRequirementFailure(error);
+    }
   });
 
   call.on('close', () => {
@@ -806,6 +817,9 @@ async function initialisePeerSession() {
     state.peerStream = null;
     if (state.peerStatus !== PEER_STATUS.idle) {
       destroyPeerSession(PEER_STATUS.error, state.lockReason);
+      if (shouldAnnounceStreamFailure()) {
+        handleStreamRequirementFailure(new Error('peer-call-closed'));
+      }
     }
   });
 
@@ -817,25 +831,41 @@ async function initialisePeerSession() {
   });
   state.peerConnection = connection;
 
-  connection.on('open', () => {
-    setPeerStatus(PEER_STATUS.connected);
-    broadcastPeerStatus({ event: 'open' });
+  const connectionReady = new Promise((resolve, reject) => {
+    const handleOpen = () => {
+      setPeerStatus(PEER_STATUS.connected);
+      broadcastPeerStatus({ event: 'open' });
+      resolve();
+    };
+    const handleError = (error) => {
+      state.peerConnection = null;
+      setPeerStatus(PEER_STATUS.error, error);
+      destroyPeerSession(PEER_STATUS.error, state.lockReason);
+      if (shouldAnnounceStreamFailure()) {
+        handleStreamRequirementFailure(error);
+      }
+      reject(error);
+    };
+    const handleClose = () => {
+      state.peerConnection = null;
+      if (state.peerStatus !== PEER_STATUS.idle) {
+        destroyPeerSession(PEER_STATUS.error, state.lockReason);
+        if (shouldAnnounceStreamFailure()) {
+          handleStreamRequirementFailure(new Error('peer-connection-closed'));
+        }
+      }
+      reject(new Error('peer-connection-closed'));
+    };
+    connection.on('open', handleOpen);
+    connection.on('error', handleError);
+    connection.on('close', handleClose);
   });
 
   connection.on('data', handlePeerData);
 
-  connection.on('close', () => {
-    state.peerConnection = null;
-    if (state.peerStatus !== PEER_STATUS.idle) {
-      destroyPeerSession(PEER_STATUS.error, state.lockReason);
-    }
-  });
+  await connectionReady;
 
-  connection.on('error', (error) => {
-    state.peerConnection = null;
-    setPeerStatus(PEER_STATUS.error, error);
-    destroyPeerSession(PEER_STATUS.error, state.lockReason);
-  });
+  return { peerId, stream };
 }
 
 function destroyPeerSession(nextStatus = PEER_STATUS.idle, lockContext = null) {
@@ -907,7 +937,12 @@ function setLocked(isLocked, context = null) {
       removeStorage(STORAGE_KEYS.lockReason);
     }
     setBadgeText(elements.lockBadge, state.messages?.banner.locked ?? 'Bloquejat');
-    elements.lockOverlay.classList.remove('hidden');
+    const shouldHideOverlay = normalisedContext?.type === 'stream-required' && !state.viewerActive;
+    if (shouldHideOverlay) {
+      elements.lockOverlay.classList.add('hidden');
+    } else {
+      elements.lockOverlay.classList.remove('hidden');
+    }
     setMonitoringMessage(state.messages?.ui.monitorBadgeFallback ?? '');
     disableMonitoring();
     refreshUnlockForm();
@@ -1046,11 +1081,11 @@ async function handleLanguageChange(event) {
   }
 }
 
-function handleSubmit(event) {
+async function handleSubmit(event) {
   event.preventDefault();
   clearError();
 
-  if (state.locked) {
+  if (state.locked && state.lockReason?.type !== 'stream-required') {
     showError(state.messages.ui.errorLocked);
     return;
   }
@@ -1082,22 +1117,43 @@ function handleSubmit(event) {
   persistAttempts();
   updateAttemptsInfo();
   writeStorage(STORAGE_KEYS.lastCode, code);
+  state.contentReady = false;
+
+  const ui = state.messages?.ui;
+  if (ui?.waitingStream) {
+    showError(ui.waitingStream);
+  }
+
+  if (elements.submitButton) {
+    elements.submitButton.disabled = true;
+  }
+
+  try {
+    await initialisePeerSession();
+  } catch (error) {
+    handleStreamRequirementFailure(error);
+    if (elements.submitButton) {
+      elements.submitButton.disabled = false;
+    }
+    return;
+  }
+
+  if (elements.submitButton) {
+    elements.submitButton.disabled = false;
+  }
 
   elements.contentFrame.setAttribute('src', match.link);
   elements.fallbackLink.setAttribute('href', match.link);
   elements.accessScreen.classList.add('hidden');
   elements.viewer.classList.remove('hidden');
-  state.contentReady = false;
   disableMonitoring();
   elements.appHeader?.classList.add('hidden');
 
+  applyViewerLayout(true);
+
   setLocked(false);
 
-  initialisePeerSession().catch((error) => {
-    console.warn('No es pot inicialitzar la sessió de PeerJS', error);
-  });
-
-  applyViewerLayout(true);
+  clearError();
   elements.contentFrame.focus();
 }
 
@@ -1113,6 +1169,46 @@ function handleFrameLoad() {
   setMonitoringMessage(state.messages.banner.monitor);
   state.contentReady = true;
   scheduleMonitoringStart();
+}
+
+function handleStreamRequirementFailure(error = null) {
+  if (error) {
+    console.warn('La sessió requereix reprendre la compartició de pantalla', error);
+  }
+  if (state.lockReason?.type === 'stream-ended') {
+    return;
+  }
+
+  state.viewerActive = false;
+  state.contentReady = false;
+  disableMonitoring();
+  applyViewerLayout(false);
+
+  elements.viewer.classList.add('hidden');
+  elements.accessScreen.classList.remove('hidden');
+  elements.appHeader?.classList.remove('hidden');
+  elements.contentFrame.setAttribute('src', 'about:blank');
+  elements.fallback.classList.add('hidden');
+  elements.fallbackLink.setAttribute('href', '#');
+
+  const monitorMessage = state.messages?.banner.monitor ?? '';
+  setMonitoringMessage(monitorMessage);
+
+  const ui = state.messages?.ui;
+  if (ui) {
+    const message = ui.errorStreamRequired ?? '';
+    if (message) {
+      showError(message);
+    }
+  }
+
+  if (state.lockReason?.type !== 'stream-required') {
+    addLockLogEntry('stream-required');
+  }
+
+  setLocked(true, { type: 'stream-required' });
+
+  elements.codeInput.focus();
 }
 
 function getActiveUnlockSecret() {
@@ -1195,6 +1291,11 @@ function showUnlockError(message) {
 
 function refreshUnlockForm() {
   if (!elements.unlockForm || !state.messages) {
+    return;
+  }
+  if (state.lockReason?.type === 'stream-required' && !state.viewerActive) {
+    elements.unlockForm.classList.add('hidden');
+    clearUnlockError();
     return;
   }
   const secret = getActiveUnlockSecret();
