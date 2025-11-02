@@ -782,6 +782,35 @@ body.admin {
   color: var(--color-muted);
 }
 
+.admin-tile__surface {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--color-muted);
+}
+
+.admin-tile__surface-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.12);
+  color: var(--color-primary);
+}
+
+.admin-tile__surface-icon-image {
+  width: 1rem;
+  height: 1rem;
+}
+
+.admin-tile__surface-text {
+  line-height: 1;
+}
+
 .admin-tile__media {
   display: grid;
   gap: 0.75rem;

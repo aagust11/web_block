@@ -82,7 +82,9 @@ const state = {
   peerStream: null,
   peerId: null,
   peerStatus: 'idle',
-  peerError: null
+  peerError: null,
+  displaySurface: 'unknown',
+  displaySurfaceMonitor: null
 };
 
 const ADMIN_PEER_ID = 'contrOwl-admin';
@@ -684,11 +686,92 @@ function broadcastPeerStatus(extra = {}) {
       peerId: state.peerId,
       code: state.activeCode,
       status: state.peerStatus,
+      displaySurface: state.displaySurface,
       ...extra
     });
   } catch (error) {
     console.warn('No s\'ha pogut enviar l\'estat al canal de dades', error);
   }
+}
+
+function normaliseDisplaySurface(surface) {
+  if (typeof surface !== 'string') {
+    return 'unknown';
+  }
+  const value = surface.toLowerCase();
+  if (value === 'monitor' || value === 'window' || value === 'browser') {
+    return value;
+  }
+  return 'unknown';
+}
+
+function setDisplaySurface(surface) {
+  const normalised = normaliseDisplaySurface(surface);
+  if (state.displaySurface === normalised) {
+    return;
+  }
+  state.displaySurface = normalised;
+  if (state.peerConnection && state.peerConnection.open) {
+    broadcastPeerStatus({ event: 'surface-change' });
+  }
+}
+
+function stopDisplaySurfaceMonitor() {
+  const monitor = state.displaySurfaceMonitor;
+  if (!monitor) {
+    return;
+  }
+  monitor.events.forEach((eventName) => {
+    try {
+      monitor.track.removeEventListener(eventName, monitor.handler);
+    } catch (error) {
+      console.warn('No es pot desregistrar l\'observador de la superfície compartida', error);
+    }
+  });
+  if (monitor.intervalId) {
+    window.clearInterval(monitor.intervalId);
+  }
+  state.displaySurfaceMonitor = null;
+}
+
+function startDisplaySurfaceMonitor(track) {
+  stopDisplaySurfaceMonitor();
+  if (!track) {
+    setDisplaySurface('unknown');
+    return;
+  }
+
+  const events = ['mute', 'unmute', 'overconstrained'];
+  const handler = () => {
+    try {
+      const settings = typeof track.getSettings === 'function' ? track.getSettings() : null;
+      if (settings && typeof settings.displaySurface === 'string') {
+        setDisplaySurface(settings.displaySurface);
+        return;
+      }
+    } catch (error) {
+      console.warn('No es pot llegir la superfície compartida', error);
+    }
+    setDisplaySurface('unknown');
+  };
+
+  events.forEach((eventName) => {
+    try {
+      track.addEventListener(eventName, handler);
+    } catch (error) {
+      console.warn('No es pot observar els canvis de la superfície compartida', error);
+    }
+  });
+
+  let intervalId = null;
+  try {
+    intervalId = window.setInterval(handler, 2000);
+  } catch (error) {
+    console.warn('No es pot iniciar el seguiment periòdic de la superfície compartida', error);
+  }
+
+  state.displaySurfaceMonitor = { track, handler, events, intervalId };
+  handler();
 }
 
 async function requestScreenStream() {
@@ -703,6 +786,7 @@ async function requestScreenStream() {
 
   const [videoTrack] = stream.getVideoTracks();
   if (videoTrack) {
+    startDisplaySurfaceMonitor(videoTrack);
     videoTrack.addEventListener('ended', () => {
       const details = {
         reason: 'track-ended',
@@ -710,12 +794,16 @@ async function requestScreenStream() {
         trackLabel: videoTrack.label ?? '',
         trackId: videoTrack.id ?? ''
       };
+      stopDisplaySurfaceMonitor();
+      setDisplaySurface('unknown');
       const lockContext = { type: 'stream-ended', details };
       addLockLogEntry('stream', details);
       setLocked(true, lockContext);
       broadcastPeerStatus({ event: 'stream-ended', context: lockContext });
       destroyPeerSession(PEER_STATUS.error, lockContext);
     });
+  } else {
+    setDisplaySurface('unknown');
   }
 
   return stream;
@@ -797,7 +885,8 @@ async function initialisePeerSession() {
     metadata: {
       code: state.activeCode,
       peerId,
-      locked: state.locked
+      locked: state.locked,
+      displaySurface: state.displaySurface
     }
   });
   state.peerCall = call;
@@ -826,7 +915,8 @@ async function initialisePeerSession() {
   const connection = peer.connect(ADMIN_PEER_ID, {
     metadata: {
       code: state.activeCode,
-      peerId
+      peerId,
+      displaySurface: state.displaySurface
     }
   });
   state.peerConnection = connection;
@@ -883,6 +973,9 @@ function destroyPeerSession(nextStatus = PEER_STATUS.idle, lockContext = null) {
   if (state.peerConnection && state.peerConnection.open) {
     broadcastPeerStatus({ event: 'closing', context: closingContext });
   }
+
+  stopDisplaySurfaceMonitor();
+  state.displaySurface = 'unknown';
 
   if (state.peerCall) {
     try {
