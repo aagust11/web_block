@@ -9,7 +9,9 @@ const STORAGE_KEYS = {
   lastCode: 'wb_last_code',
   log: 'wb_log',
   lockReason: 'wb_lock_reason',
-  language: 'wb_language'
+  language: 'wb_language',
+  peerStatus: 'wb_peer_status',
+  peerId: 'wb_peer_id'
 };
 
 const elements = {
@@ -49,6 +51,8 @@ const elements = {
   visibilityStatus: document.getElementById('visibilityStatus'),
   focusStatus: document.getElementById('focusStatus'),
   fullscreenStatus: document.getElementById('fullscreenStatus'),
+  connectionStatus: document.getElementById('connectionStatus'),
+  lockStateStatus: document.getElementById('lockStateStatus'),
   contentFrame: document.getElementById('contentFrame'),
   fallback: document.getElementById('fallback'),
   fallbackTitle: document.getElementById('fallbackTitle'),
@@ -71,7 +75,23 @@ const state = {
   log: [],
   lockReason: null,
   language: DEFAULT_LANGUAGE,
-  messageCache: {}
+  messageCache: {},
+  peer: null,
+  peerConnection: null,
+  peerCall: null,
+  peerStream: null,
+  peerId: null,
+  peerStatus: 'idle',
+  peerError: null
+};
+
+const ADMIN_PEER_ID = 'contrOwl-admin';
+const PEER_STATUS = {
+  idle: 'idle',
+  connecting: 'connecting',
+  connected: 'connected',
+  error: 'error',
+  unavailable: 'unavailable'
 };
 
 async function fetchMasterKey() {
@@ -516,6 +536,298 @@ function scheduleMonitoringStart(immediate = false) {
   }, MONITORING_DELAY_MS);
 }
 
+function canUsePeer() {
+  return typeof window !== 'undefined' && typeof window.Peer === 'function';
+}
+
+function getPeerStatusLabel(ui) {
+  if (!ui) {
+    return state.peerStatus;
+  }
+  switch (state.peerStatus) {
+    case PEER_STATUS.connected:
+      return ui.statusPeerConnected ?? 'Connectada';
+    case PEER_STATUS.connecting:
+      return ui.statusPeerConnecting ?? 'Connectant';
+    case PEER_STATUS.error:
+      return ui.statusPeerError ?? 'Error';
+    case PEER_STATUS.unavailable:
+      return ui.statusPeerUnavailable ?? 'No disponible';
+    case PEER_STATUS.idle:
+    default:
+      return ui.statusPeerIdle ?? 'Inactiva';
+  }
+}
+
+function updateConnectionStatusText() {
+  if (!elements.connectionStatus) {
+    return;
+  }
+
+  const ui = state.messages?.ui ?? {};
+  const label = ui.statusPeer ?? 'Connexió';
+  const value = getPeerStatusLabel(ui);
+  elements.connectionStatus.textContent = `${label}: ${value}`;
+}
+
+function updateLockStateStatusText() {
+  if (!elements.lockStateStatus) {
+    return;
+  }
+
+  const ui = state.messages?.ui ?? {};
+  const label = ui.statusLockState ?? 'Bloqueig';
+  const value = state.locked
+    ? ui.statusLockStateLocked ?? 'Actiu'
+    : ui.statusLockStateUnlocked ?? 'Inactiu';
+  elements.lockStateStatus.textContent = `${label}: ${value}`;
+}
+
+function setPeerStatus(status, error = null) {
+  state.peerStatus = status;
+  state.peerError = error ?? null;
+
+  if (status === PEER_STATUS.idle) {
+    removeStorage(STORAGE_KEYS.peerStatus);
+  } else {
+    writeStorage(STORAGE_KEYS.peerStatus, status);
+  }
+
+  if (status === PEER_STATUS.connected && state.peerId) {
+    writeStorage(STORAGE_KEYS.peerId, state.peerId);
+  }
+
+  updateConnectionStatusText();
+}
+
+function handlePeerData(data) {
+  if (!data || typeof data !== 'object') {
+    return;
+  }
+
+  if (data.type === 'lock' && typeof data.locked === 'boolean') {
+    const desiredState = Boolean(data.locked);
+    if (desiredState === state.locked) {
+      broadcastPeerStatus({ event: 'lock-confirmed' });
+      return;
+    }
+    const context = data.context ?? {
+      type: 'remote',
+      details: {
+        source: 'admin',
+        reason: data.reason ?? null
+      }
+    };
+    setLocked(desiredState, context);
+  }
+}
+
+function broadcastPeerStatus(extra = {}) {
+  if (!state.peerConnection || !state.peerConnection.open) {
+    return;
+  }
+  try {
+    state.peerConnection.send({
+      type: 'status',
+      locked: state.locked,
+      viewerActive: state.viewerActive,
+      peerId: state.peerId,
+      code: state.activeCode,
+      status: state.peerStatus,
+      ...extra
+    });
+  } catch (error) {
+    console.warn('No s\'ha pogut enviar l\'estat al canal de dades', error);
+  }
+}
+
+async function requestScreenStream() {
+  if (!navigator?.mediaDevices?.getDisplayMedia) {
+    throw new Error('display-media-unavailable');
+  }
+
+  const stream = await navigator.mediaDevices.getDisplayMedia({
+    video: { cursor: 'always' },
+    audio: false
+  });
+
+  const [videoTrack] = stream.getVideoTracks();
+  if (videoTrack) {
+    videoTrack.addEventListener('ended', () => {
+      broadcastPeerStatus({ event: 'stream-ended' });
+      destroyPeerSession();
+    });
+  }
+
+  return stream;
+}
+
+async function initialisePeerSession() {
+  if (!state.viewerActive) {
+    return;
+  }
+
+  if (!canUsePeer()) {
+    setPeerStatus(PEER_STATUS.unavailable);
+    return;
+  }
+
+  if (state.peer) {
+    destroyPeerSession(null);
+  }
+
+  setPeerStatus(PEER_STATUS.connecting);
+
+  const peer = new window.Peer(undefined, { debug: 0 });
+  state.peer = peer;
+
+  peer.on('close', () => {
+    setPeerStatus(PEER_STATUS.idle);
+    state.peer = null;
+    state.peerId = null;
+    removeStorage(STORAGE_KEYS.peerId);
+  });
+
+  peer.on('disconnected', () => {
+    setPeerStatus(PEER_STATUS.error);
+  });
+
+  const peerId = await new Promise((resolve, reject) => {
+    const handleOpen = (id) => {
+      cleanup();
+      resolve(id);
+    };
+    const handleError = (error) => {
+      cleanup();
+      reject(error);
+    };
+    const cleanup = () => {
+      if (typeof peer.off === 'function') {
+        peer.off('open', handleOpen);
+        peer.off('error', handleError);
+      }
+    };
+    peer.on('open', handleOpen);
+    peer.on('error', handleError);
+  }).catch((error) => {
+    setPeerStatus(PEER_STATUS.error, error);
+    destroyPeerSession(PEER_STATUS.error);
+    throw error;
+  });
+
+  state.peerId = peerId;
+  writeStorage(STORAGE_KEYS.peerId, peerId);
+
+  let stream;
+  try {
+    stream = await requestScreenStream();
+  } catch (error) {
+    setPeerStatus(PEER_STATUS.error, error);
+    destroyPeerSession(PEER_STATUS.error);
+    throw error;
+  }
+
+  state.peerStream = stream;
+
+  const call = peer.call(ADMIN_PEER_ID, stream, {
+    metadata: {
+      code: state.activeCode,
+      peerId,
+      locked: state.locked
+    }
+  });
+  state.peerCall = call;
+
+  call.on('error', (error) => {
+    setPeerStatus(PEER_STATUS.error, error);
+    state.peerCall = null;
+    state.peerStream = null;
+    destroyPeerSession(PEER_STATUS.error);
+  });
+
+  call.on('close', () => {
+    state.peerCall = null;
+    state.peerStream = null;
+    if (state.peerStatus !== PEER_STATUS.idle) {
+      destroyPeerSession(PEER_STATUS.error);
+    }
+  });
+
+  const connection = peer.connect(ADMIN_PEER_ID, {
+    metadata: {
+      code: state.activeCode,
+      peerId
+    }
+  });
+  state.peerConnection = connection;
+
+  connection.on('open', () => {
+    setPeerStatus(PEER_STATUS.connected);
+    broadcastPeerStatus({ event: 'open' });
+  });
+
+  connection.on('data', handlePeerData);
+
+  connection.on('close', () => {
+    state.peerConnection = null;
+    if (state.peerStatus !== PEER_STATUS.idle) {
+      destroyPeerSession(PEER_STATUS.error);
+    }
+  });
+
+  connection.on('error', (error) => {
+    state.peerConnection = null;
+    setPeerStatus(PEER_STATUS.error, error);
+    destroyPeerSession(PEER_STATUS.error);
+  });
+}
+
+function destroyPeerSession(nextStatus = PEER_STATUS.idle) {
+  if (state.peerConnection && state.peerConnection.open) {
+    broadcastPeerStatus({ event: 'closing' });
+  }
+
+  if (state.peerCall) {
+    try {
+      state.peerCall.close();
+    } catch (error) {
+      console.warn('No es pot tancar la trucada de PeerJS', error);
+    }
+    state.peerCall = null;
+  }
+
+  if (state.peerConnection) {
+    try {
+      state.peerConnection.close();
+    } catch (error) {
+      console.warn('No es pot tancar la connexió de dades', error);
+    }
+    state.peerConnection = null;
+  }
+
+  if (state.peerStream) {
+    state.peerStream.getTracks().forEach((track) => {
+      track.stop();
+    });
+    state.peerStream = null;
+  }
+
+  if (state.peer) {
+    try {
+      state.peer.destroy();
+    } catch (error) {
+      console.warn('No es pot destruir la instància de PeerJS', error);
+    }
+    state.peer = null;
+  }
+
+  state.peerId = null;
+  removeStorage(STORAGE_KEYS.peerId);
+  if (nextStatus) {
+    setPeerStatus(nextStatus);
+  }
+}
+
 function setLocked(isLocked, context = null) {
   state.locked = isLocked;
   if (isLocked) {
@@ -547,10 +859,13 @@ function setLocked(isLocked, context = null) {
   updateUnlockHelp(state.locked ? getActiveUnlockSecret() : null);
   updateAttemptsInfo();
   updateLockOverlayContent();
+  updateStatuses();
+  broadcastPeerStatus({ event: 'lock-change', context: state.lockReason });
 }
 
 function resetViewer() {
   state.viewerActive = false;
+  destroyPeerSession();
   state.activeCode = null;
   state.contentReady = false;
   applyViewerLayout(false);
@@ -589,6 +904,9 @@ function updateStatuses() {
 
   const fullscreenActive = document.fullscreenElement != null;
   elements.fullscreenStatus.textContent = `${ui.statusFullscreen}: ${fullscreenActive ? ui.statusFullscreenOn : ui.statusFullscreenOff}`;
+
+  updateConnectionStatusText();
+  updateLockStateStatusText();
 }
 
 function initialiseState() {
@@ -619,12 +937,28 @@ function initialiseState() {
     elements.lockOverlay.classList.remove('hidden');
   }
 
+  const storedPeerStatus = readStorage(STORAGE_KEYS.peerStatus);
+  if (storedPeerStatus && Object.values(PEER_STATUS).includes(storedPeerStatus)) {
+    state.peerStatus = storedPeerStatus;
+  }
+
+  const storedPeerId = readStorage(STORAGE_KEYS.peerId);
+  if (storedPeerId) {
+    state.peerId = storedPeerId;
+  }
+
+  if (!canUsePeer()) {
+    state.peerStatus = PEER_STATUS.unavailable;
+  }
+
   const storedCode = readStorage(STORAGE_KEYS.lastCode);
   if (storedCode) {
     elements.codeInput.value = storedCode;
   }
 
   updateAttemptsInfo();
+  updateConnectionStatusText();
+  updateLockStateStatusText();
 }
 
 function persistAttempts() {
@@ -691,6 +1025,10 @@ function handleSubmit(event) {
   elements.appHeader?.classList.add('hidden');
 
   setLocked(false);
+
+  initialisePeerSession().catch((error) => {
+    console.warn('No es pot inicialitzar la sessió de PeerJS', error);
+  });
 
   applyViewerLayout(true);
   elements.contentFrame.focus();
@@ -983,6 +1321,10 @@ async function init() {
 
   document.addEventListener('fullscreenchange', () => {
     updateStatuses();
+  });
+
+  window.addEventListener('beforeunload', () => {
+    destroyPeerSession(null);
   });
 
   if (state.locked) {

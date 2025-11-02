@@ -53,6 +53,36 @@
     "statusFullscreenOn": "Activa",
     "statusFullscreenOff": "Inactiva",
     "monitorBadgeFallback": "Registre pausat",
-    "monitoringBarExit": "Tanca monitoratge"
+    "monitoringBarExit": "Tanca monitoratge",
+    "statusPeer": "Connexió",
+    "statusPeerIdle": "Inactiva",
+    "statusPeerConnecting": "Connectant",
+    "statusPeerConnected": "Connectada",
+    "statusPeerError": "Error",
+    "statusPeerUnavailable": "No disponible",
+    "statusLockState": "Bloqueig",
+    "statusLockStateLocked": "Actiu",
+    "statusLockStateUnlocked": "Inactiu"
+  },
+  "admin": {
+    "title": "Sala d'administració de contrOwl",
+    "description": "Supervisa les transmissions actives i bloqueja remotament les sessions en cas d'incidència.",
+    "peerId": "ID d'administració: {id}",
+    "statusOffline": "Connectant amb el servidor PeerJS…",
+    "statusReady": "Servidor PeerJS preparat",
+    "statusError": "Error de connexió amb PeerJS",
+    "streamsCount": "Participants actius: {count}",
+    "lockedCount": "Bloquejos actius: {count}",
+    "empty": "Encara no hi ha transmissions actives.",
+    "tileTitle": "Participant {id}",
+    "tileCode": "Codi: {code}",
+    "tileCodeUnknown": "Codi no assignat",
+    "tileStatusLocked": "Bloqueig actiu",
+    "tileStatusUnlocked": "Monitoratge actiu",
+    "tileStatusUnknown": "Sense estat",
+    "tileHint": "Fes clic per capturar un fotograma i enviar el bloqueig.",
+    "tileCapture": "Darrera captura: {time}",
+    "tileCaptureEmpty": "Encara no s'ha capturat cap fotograma.",
+    "lockSent": "Ordre de bloqueig enviada"
   }
 }
