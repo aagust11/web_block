@@ -13,7 +13,9 @@ const state = {
   peerError: null,
   peerId: null,
   entries: new Map(),
-  messageCache: new Map()
+  messageCache: new Map(),
+  layoutMode: 'grid',
+  focusedPeerId: null
 };
 
 const elements = {
@@ -25,7 +27,25 @@ const elements = {
   lockStatus: document.getElementById('adminLockStatus'),
   streamsCount: document.getElementById('adminStreamsCount'),
   grid: document.getElementById('adminGrid'),
-  emptyState: document.getElementById('adminEmptyState')
+  emptyState: document.getElementById('adminEmptyState'),
+  layoutControls: document.getElementById('adminLayoutControls'),
+  layoutGridButton: document.getElementById('adminLayoutGrid'),
+  layoutFocusButton: document.getElementById('adminLayoutFocus'),
+  focus: document.getElementById('adminFocus'),
+  focusContent: document.getElementById('adminFocusContent'),
+  focusEmpty: document.getElementById('adminFocusEmpty'),
+  focusTitle: document.getElementById('adminFocusTitle'),
+  focusName: document.getElementById('adminFocusName'),
+  focusMeta: document.getElementById('adminFocusMeta'),
+  focusStatus: document.getElementById('adminFocusStatus'),
+  focusSurface: document.getElementById('adminFocusSurface'),
+  focusSurfaceIcon: document.getElementById('adminFocusSurfaceIcon'),
+  focusSurfaceText: document.getElementById('adminFocusSurfaceText'),
+  focusVideo: document.getElementById('adminFocusVideo'),
+  focusLock: document.getElementById('adminFocusLock'),
+  focusUnlock: document.getElementById('adminFocusUnlock'),
+  focusBack: document.getElementById('adminFocusBack'),
+  focusCapture: document.getElementById('adminFocusCapture')
 };
 
 function readStorage(key) {
@@ -136,6 +156,196 @@ function updateEmptyState() {
   const message = adminMessages.empty ?? 'Encara no hi ha transmissions actives.';
   elements.emptyState.textContent = message;
   elements.emptyState.classList.toggle('hidden', state.entries.size > 0);
+}
+
+function getFocusedEntry() {
+  if (!state.focusedPeerId) {
+    return null;
+  }
+  return state.entries.get(state.focusedPeerId) ?? null;
+}
+
+function updateLayoutControls() {
+  const adminMessages = state.messages?.admin ?? {};
+  if (elements.layoutControls && adminMessages.layoutLabel) {
+    elements.layoutControls.setAttribute('aria-label', adminMessages.layoutLabel);
+  }
+  if (elements.layoutGridButton) {
+    elements.layoutGridButton.textContent = adminMessages.layoutGrid ?? 'Vista en graella';
+    elements.layoutGridButton.setAttribute('aria-pressed', state.layoutMode === 'grid' ? 'true' : 'false');
+  }
+  if (elements.layoutFocusButton) {
+    elements.layoutFocusButton.textContent = adminMessages.layoutFocus ?? 'Vista enfocada';
+    elements.layoutFocusButton.setAttribute('aria-pressed', state.layoutMode === 'focus' ? 'true' : 'false');
+  }
+  if (elements.focusBack) {
+    elements.focusBack.textContent = adminMessages.focusBack ?? 'Torna a la graella';
+  }
+}
+
+function updateFocusSurface(entry) {
+  if (!elements.focusSurface || !elements.focusSurfaceIcon || !elements.focusSurfaceText) {
+    return;
+  }
+  const hasSurface = entry.surfaceEl && !entry.surfaceEl.classList.contains('hidden');
+  if (!hasSurface) {
+    elements.focusSurface.classList.add('hidden');
+    elements.focusSurfaceIcon.innerHTML = '';
+    elements.focusSurfaceText.textContent = '';
+    return;
+  }
+
+  const config = DISPLAY_SURFACE_VARIANTS[entry.displaySurface] ?? DISPLAY_SURFACE_VARIANTS.unknown;
+  const adminMessages = state.messages?.admin ?? {};
+  const label = entry.surfaceLabelEl?.textContent ?? adminMessages[config.messageKey] ?? config.fallback;
+  elements.focusSurfaceText.textContent = label;
+  elements.focusSurfaceIcon.innerHTML = '';
+  try {
+    const icon = config.createIcon();
+    elements.focusSurfaceIcon.appendChild(icon);
+  } catch (error) {
+    console.warn('No es pot renderitzar la icona de la vista enfocada', error);
+  }
+  elements.focusSurface.classList.remove('hidden');
+}
+
+function updateFocusView() {
+  updateLayoutControls();
+
+  const adminMessages = state.messages?.admin ?? {};
+  if (elements.focusEmpty) {
+    elements.focusEmpty.textContent = adminMessages.focusEmpty ?? "Selecciona un participant per veure'l en focus.";
+  }
+
+  const isFocusMode = state.layoutMode === 'focus';
+  const focusedEntry = getFocusedEntry();
+
+  if (document.body) {
+    document.body.classList.toggle('admin--focus-mode', isFocusMode);
+    document.body.classList.toggle('admin--focus-active', isFocusMode && Boolean(focusedEntry));
+  }
+
+  if (!elements.focus) {
+    return;
+  }
+
+  elements.focus.classList.toggle('admin-focus--visible', isFocusMode);
+
+  if (!isFocusMode) {
+    elements.focusContent?.classList.add('hidden');
+    if (elements.focusEmpty) {
+      elements.focusEmpty.classList.remove('hidden');
+    }
+    if (elements.focusVideo && elements.focusVideo.srcObject) {
+      elements.focusVideo.srcObject = null;
+    }
+    if (elements.focusCapture) {
+      elements.focusCapture.textContent = '';
+      elements.focusCapture.classList.add('hidden');
+    }
+    return;
+  }
+
+  const hasEntry = Boolean(focusedEntry);
+  elements.focusContent?.classList.toggle('hidden', !hasEntry);
+  if (elements.focusEmpty) {
+    elements.focusEmpty.classList.toggle('hidden', hasEntry);
+  }
+
+  if (!hasEntry) {
+    if (elements.focusTitle) {
+      elements.focusTitle.textContent = '';
+    }
+    if (elements.focusName) {
+      elements.focusName.textContent = '';
+    }
+    if (elements.focusMeta) {
+      elements.focusMeta.textContent = '';
+    }
+    if (elements.focusStatus) {
+      elements.focusStatus.textContent = '';
+    }
+    if (elements.focusSurface) {
+      elements.focusSurface.classList.add('hidden');
+    }
+    if (elements.focusVideo && elements.focusVideo.srcObject) {
+      elements.focusVideo.srcObject = null;
+    }
+    if (elements.focusCapture) {
+      elements.focusCapture.textContent = '';
+      elements.focusCapture.classList.add('hidden');
+    }
+    return;
+  }
+
+  const entry = focusedEntry;
+  if (elements.focusTitle) {
+    elements.focusTitle.textContent = entry.titleEl?.textContent ?? '';
+  }
+  if (elements.focusName) {
+    elements.focusName.textContent = entry.nameEl?.textContent ?? '';
+  }
+  if (elements.focusMeta) {
+    elements.focusMeta.textContent = entry.metaEl?.textContent ?? '';
+  }
+  if (elements.focusStatus) {
+    elements.focusStatus.textContent = entry.statusEl?.textContent ?? '';
+  }
+
+  updateFocusSurface(entry);
+
+  if (elements.focusVideo) {
+    if (entry.stream) {
+      if (elements.focusVideo.srcObject !== entry.stream) {
+        elements.focusVideo.srcObject = entry.stream;
+      }
+      elements.focusVideo.play?.().catch(() => {});
+    } else if (elements.focusVideo.srcObject) {
+      elements.focusVideo.srcObject = null;
+    }
+  }
+
+  const adminLockLabel = adminMessages.tileActionLock ?? 'Bloqueja';
+  const adminUnlockLabel = adminMessages.tileActionUnlock ?? 'Desbloqueja';
+
+  if (elements.focusLock) {
+    elements.focusLock.textContent = adminLockLabel;
+    const canLock = entry.connection?.open === true && entry.locked !== true;
+    elements.focusLock.disabled = !canLock;
+  }
+  if (elements.focusUnlock) {
+    elements.focusUnlock.textContent = adminUnlockLabel;
+    const canUnlock = entry.connection?.open === true && entry.locked === true;
+    elements.focusUnlock.disabled = !canUnlock;
+  }
+
+  if (elements.focusCapture) {
+    const captureText = entry.captureEl?.textContent ?? '';
+    const shouldHide = !captureText || entry.captureEl?.classList.contains('hidden');
+    elements.focusCapture.textContent = captureText;
+    elements.focusCapture.classList.toggle('hidden', shouldHide);
+  }
+}
+
+function setLayoutMode(mode) {
+  const target = mode === 'focus' ? 'focus' : 'grid';
+  if (state.layoutMode !== target) {
+    state.layoutMode = target;
+  }
+  updateFocusView();
+}
+
+function setFocusedPeerId(peerId) {
+  if (!peerId || !state.entries.has(peerId)) {
+    state.focusedPeerId = null;
+    updateFocusView();
+    return;
+  }
+  state.focusedPeerId = peerId;
+  if (state.layoutMode !== 'focus') {
+    state.layoutMode = 'focus';
+  }
+  updateFocusView();
 }
 
 function formatTime(date) {
@@ -269,6 +479,10 @@ function renderEntrySurface(entry) {
   }
 
   entry.surfaceEl.classList.remove('hidden');
+
+  if (state.focusedPeerId === entry.id) {
+    updateFocusSurface(entry);
+  }
 }
 
 function setEntrySurface(entry, surface) {
@@ -412,14 +626,25 @@ function getOrCreateEntry(peerId, metadata = {}) {
     lastMessageKey: null
   };
 
-  container.addEventListener('click', () => {
-    triggerLock(entry);
+  const activateEntry = () => {
+    if (state.layoutMode === 'focus') {
+      setFocusedPeerId(peerId);
+    } else {
+      triggerLock(entry);
+    }
+  };
+
+  container.addEventListener('click', (event) => {
+    if (event.defaultPrevented) {
+      return;
+    }
+    activateEntry();
   });
 
   container.addEventListener('keydown', (event) => {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
-      triggerLock(entry);
+      activateEntry();
     }
   });
 
@@ -456,8 +681,12 @@ function removeEntry(peerId) {
   entry.canvas.classList.add('hidden');
   entry.container.remove();
   state.entries.delete(peerId);
+  if (state.focusedPeerId === peerId) {
+    state.focusedPeerId = null;
+  }
   updateEmptyState();
   updateGlobalStatuses();
+  updateFocusView();
 }
 
 function updateEntryTexts(entry) {
@@ -525,6 +754,10 @@ function updateEntryTexts(entry) {
     entry.captureEl.textContent = adminMessages.tileCaptureEmpty ?? 'Encara no s\'ha capturat cap fotograma.';
     entry.captureEl.classList.remove('hidden');
     entry.canvas.classList.add('hidden');
+  }
+
+  if (state.focusedPeerId === entry.id) {
+    updateFocusView();
   }
 }
 
@@ -696,6 +929,8 @@ async function applyLanguage(language, { persist = true } = {}) {
   state.entries.forEach((entry) => {
     updateEntryTexts(entry);
   });
+
+  updateFocusView();
 }
 
 function initialiseLanguage() {
@@ -755,6 +990,8 @@ async function init() {
     console.error('No es poden carregar els missatges', error);
   }
 
+  updateFocusView();
+
   elements.languageSelect?.addEventListener('change', async (event) => {
     const value = event.target?.value ?? state.language;
     try {
@@ -762,6 +999,37 @@ async function init() {
     } catch (error) {
       console.error('No es pot aplicar l\'idioma', error);
       event.target.value = state.language;
+    }
+  });
+
+  elements.layoutGridButton?.addEventListener('click', (event) => {
+    event.preventDefault();
+    setLayoutMode('grid');
+  });
+
+  elements.layoutFocusButton?.addEventListener('click', (event) => {
+    event.preventDefault();
+    setLayoutMode('focus');
+  });
+
+  elements.focusBack?.addEventListener('click', (event) => {
+    event.preventDefault();
+    setLayoutMode('grid');
+  });
+
+  elements.focusLock?.addEventListener('click', (event) => {
+    event.preventDefault();
+    const entry = getFocusedEntry();
+    if (entry) {
+      triggerLock(entry);
+    }
+  });
+
+  elements.focusUnlock?.addEventListener('click', (event) => {
+    event.preventDefault();
+    const entry = getFocusedEntry();
+    if (entry) {
+      triggerUnlock(entry);
     }
   });
 
