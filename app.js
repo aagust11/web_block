@@ -549,10 +549,62 @@ function setLocked(isLocked, context = null) {
   updateLockOverlayContent();
 }
 
+function requestViewerFullscreen() {
+  const target = elements.viewer;
+  if (!target) {
+    return;
+  }
+  if (document.fullscreenElement === target) {
+    return;
+  }
+  if (document.fullscreenElement && document.fullscreenElement !== target) {
+    return;
+  }
+
+  const request = target.requestFullscreen;
+  if (typeof request !== 'function') {
+    return;
+  }
+
+  try {
+    const result = request.call(target);
+    if (result && typeof result.catch === 'function') {
+      result.catch((error) => {
+        console.warn('No es pot activar la pantalla completa', error);
+      });
+    }
+  } catch (error) {
+    console.warn('No es pot activar la pantalla completa', error);
+  }
+}
+
+function exitFullscreenIfActive() {
+  if (!document.fullscreenElement) {
+    return;
+  }
+
+  const exitFullscreen = document.exitFullscreen;
+  if (typeof exitFullscreen !== 'function') {
+    return;
+  }
+
+  try {
+    const result = exitFullscreen.call(document);
+    if (result && typeof result.catch === 'function') {
+      result.catch((error) => {
+        console.warn('No es pot sortir de la pantalla completa', error);
+      });
+    }
+  } catch (error) {
+    console.warn('No es pot sortir de la pantalla completa', error);
+  }
+}
+
 function resetViewer() {
   state.viewerActive = false;
   state.activeCode = null;
   state.contentReady = false;
+  exitFullscreenIfActive();
   applyViewerLayout(false);
   elements.viewer.classList.add('hidden');
   elements.accessScreen.classList.remove('hidden');
@@ -567,8 +619,9 @@ function resetViewer() {
   elements.codeInput.focus();
 }
 
-function engageLock(reason = '') {
-  if (!state.viewerActive || state.locked || !state.monitoringEnabled) {
+function engageLock(reason = '', options = {}) {
+  const { force = false } = options;
+  if (!state.viewerActive || state.locked || (!state.monitoringEnabled && !force)) {
     return;
   }
   const reasons = normaliseMonitoringReasons(reason);
@@ -693,6 +746,7 @@ function handleSubmit(event) {
   setLocked(false);
 
   applyViewerLayout(true);
+  requestViewerFullscreen();
   elements.contentFrame.focus();
 }
 
@@ -939,36 +993,40 @@ async function init() {
 
   document.addEventListener('visibilitychange', () => {
     updateStatuses();
-    if (!isMonitoringActive()) {
+    if (!state.viewerActive || state.locked) {
       return;
     }
     if (document.visibilityState !== 'visible') {
-      setMonitoringMessage(state.messages.ui.monitorBadgeFallback);
-      engageLock('visibility');
-    } else {
-      setMonitoringMessage(state.messages.banner.monitor);
+      const fallbackMessage = state.messages?.ui?.monitorBadgeFallback ?? '';
+      setMonitoringMessage(fallbackMessage);
+      engageLock('visibility', { force: true });
+    } else if (isMonitoringActive()) {
+      const monitorMessage = state.messages?.banner?.monitor ?? '';
+      setMonitoringMessage(monitorMessage);
     }
   });
 
   window.addEventListener('blur', () => {
     updateStatuses();
-    if (!isMonitoringActive()) {
+    if (!state.viewerActive || state.locked) {
       return;
     }
-    setMonitoringMessage(state.messages.ui.monitorBadgeFallback);
-    engageLock('focus');
+    const fallbackMessage = state.messages?.ui?.monitorBadgeFallback ?? '';
+    setMonitoringMessage(fallbackMessage);
+    engageLock('focus', { force: true });
   });
 
   window.addEventListener('focus', () => {
     updateStatuses();
     if (!state.locked && state.viewerActive) {
-      setMonitoringMessage(state.messages.banner.monitor);
+      const monitorMessage = state.messages?.banner?.monitor ?? '';
+      setMonitoringMessage(monitorMessage);
     }
   });
 
   document.addEventListener('focusin', () => {
     updateStatuses();
-    if (!isMonitoringActive()) {
+    if (!state.viewerActive || state.locked) {
       return;
     }
     if (document.activeElement === elements.monitoringBarExit) {
@@ -976,9 +1034,27 @@ async function init() {
       return;
     }
     if (document.activeElement !== elements.contentFrame) {
-      setMonitoringMessage(state.messages.ui.monitorBadgeFallback);
-      engageLock('focus-change');
+      const fallbackMessage = state.messages?.ui?.monitorBadgeFallback ?? '';
+      setMonitoringMessage(fallbackMessage);
+      engageLock('focus-change', { force: true });
     }
+  });
+
+  window.addEventListener('keydown', (event) => {
+    if (!state.viewerActive || state.locked) {
+      return;
+    }
+
+    const key = event.key;
+    const code = event.code;
+    const isMetaKey = key === 'Meta' || key === 'OS' || code === 'MetaLeft' || code === 'MetaRight';
+    if (!isMetaKey && !event.metaKey) {
+      return;
+    }
+
+    const fallbackMessage = state.messages?.ui?.monitorBadgeFallback ?? '';
+    setMonitoringMessage(fallbackMessage);
+    engageLock('meta-key', { force: true });
   });
 
   document.addEventListener('fullscreenchange', () => {
