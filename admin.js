@@ -771,25 +771,80 @@ function updateEntryTexts(entry) {
   }
 }
 
-function captureFrame(entry) {
+function captureFrame(entry, options = {}) {
+  const { captureBlob = false } = options;
   const video = entry.video;
   if (!video || video.readyState < 2 || !video.videoWidth || !video.videoHeight) {
-    return;
+    return captureBlob ? Promise.resolve(null) : null;
   }
   const canvas = entry.canvas;
   const context = canvas.getContext('2d');
   if (!context) {
-    return;
+    return captureBlob ? Promise.resolve(null) : null;
   }
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
   context.drawImage(video, 0, 0, canvas.width, canvas.height);
   entry.lastCapture = new Date();
   updateEntryTexts(entry);
+  if (!captureBlob) {
+    return null;
+  }
+  if (typeof canvas.toBlob === 'function') {
+    return new Promise((resolve) => {
+      canvas.toBlob((blob) => {
+        resolve(blob ?? null);
+      }, 'image/png');
+    });
+  }
+  try {
+    const dataUrl = canvas.toDataURL('image/png');
+    const [header, data] = dataUrl.split(',');
+    if (!header || !data) {
+      return Promise.resolve(null);
+    }
+    const mimeMatch = header.match(/data:(.*);base64/);
+    const mimeType = mimeMatch ? mimeMatch[1] : 'image/png';
+    const binary = window.atob(data);
+    const length = binary.length;
+    const bytes = new Uint8Array(length);
+    for (let index = 0; index < length; index += 1) {
+      bytes[index] = binary.charCodeAt(index);
+    }
+    return Promise.resolve(new Blob([bytes], { type: mimeType }));
+  } catch (error) {
+    console.warn('No es pot serialitzar la captura', error);
+    return Promise.resolve(null);
+  }
 }
 
-function triggerLock(entry) {
-  captureFrame(entry);
+function buildCaptureFilename(entry) {
+  const now = new Date();
+  const pad = (value) => String(value).padStart(2, '0');
+  const datePart = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`;
+  const sanitizeSegment = (value, fallback) => {
+    if (typeof value !== 'string') {
+      return fallback;
+    }
+    const trimmed = value.trim();
+    if (trimmed.length === 0) {
+      return fallback;
+    }
+    const safe = trimmed
+      .normalize('NFKD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9-_]+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+    return safe.length > 0 ? safe : fallback;
+  };
+  const codePart = sanitizeSegment(entry.code, 'unknown-code');
+  const namePart = sanitizeSegment(entry.name, 'unknown-name');
+  return `${datePart}_${codePart}_${namePart}.png`;
+}
+
+async function triggerLock(entry) {
+  const blobPromise = captureFrame(entry, { captureBlob: true });
   if (entry.connection && entry.connection.open) {
     try {
       entry.connection.send({ type: 'lock', locked: true, reason: 'admin-click' });
@@ -797,6 +852,19 @@ function triggerLock(entry) {
     } catch (error) {
       console.warn('No es pot enviar l\'ordre de bloqueig', error);
     }
+  }
+  const blob = await blobPromise;
+  if (blob) {
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = buildCaptureFilename(entry);
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => {
+      URL.revokeObjectURL(url);
+    }, 0);
   }
   updateEntryTexts(entry);
 }
