@@ -688,6 +688,9 @@ function handlePeerData(data) {
       }
     };
     setLocked(desiredState, context);
+    if (!desiredState && data.restartMonitoring === true && state.viewerActive) {
+      scheduleMonitoringStart(true);
+    }
   }
 }
 

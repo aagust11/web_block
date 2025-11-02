@@ -360,6 +360,21 @@ function getOrCreateEntry(peerId, metadata = {}) {
   hint.className = 'admin-tile__hint';
   footer.appendChild(hint);
 
+  const actions = document.createElement('div');
+  actions.className = 'admin-tile__actions';
+
+  const lockButton = document.createElement('button');
+  lockButton.type = 'button';
+  lockButton.className = 'admin-tile__action admin-tile__action--lock';
+  actions.appendChild(lockButton);
+
+  const unlockButton = document.createElement('button');
+  unlockButton.type = 'button';
+  unlockButton.className = 'admin-tile__action admin-tile__action--unlock';
+  actions.appendChild(unlockButton);
+
+  footer.appendChild(actions);
+
   const capture = document.createElement('p');
   capture.className = 'admin-tile__capture';
   footer.appendChild(capture);
@@ -386,6 +401,9 @@ function getOrCreateEntry(peerId, metadata = {}) {
     video,
     canvas,
     hintEl: hint,
+    actionsEl: actions,
+    lockButtonEl: lockButton,
+    unlockButtonEl: unlockButton,
     captureEl: capture,
     call: null,
     connection: null,
@@ -403,6 +421,18 @@ function getOrCreateEntry(peerId, metadata = {}) {
       event.preventDefault();
       triggerLock(entry);
     }
+  });
+
+  lockButton.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    triggerLock(entry);
+  });
+
+  unlockButton.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    triggerUnlock(entry);
   });
 
   state.entries.set(peerId, entry);
@@ -462,6 +492,18 @@ function updateEntryTexts(entry) {
     statusText = adminMessages.tileStatusUnknown ?? 'Sense estat';
   }
 
+  if (entry.lockButtonEl) {
+    entry.lockButtonEl.textContent = adminMessages.tileActionLock ?? 'Bloqueja';
+    const canLock = entry.connection?.open === true && entry.locked !== true;
+    entry.lockButtonEl.disabled = !canLock;
+  }
+
+  if (entry.unlockButtonEl) {
+    entry.unlockButtonEl.textContent = adminMessages.tileActionUnlock ?? 'Desbloqueja';
+    const canUnlock = entry.connection?.open === true && entry.locked === true;
+    entry.unlockButtonEl.disabled = !canUnlock;
+  }
+
   if (entry.lastMessageKey) {
     const message = adminMessages[entry.lastMessageKey];
     if (message) {
@@ -470,7 +512,7 @@ function updateEntryTexts(entry) {
   }
 
   entry.statusEl.textContent = statusText;
-  entry.hintEl.textContent = adminMessages.tileHint ?? 'Fes clic per capturar i bloquejar.';
+  entry.hintEl.textContent = adminMessages.tileHint ?? 'Fes clic per capturar i bloquejar. Usa el botó per desbloquejar.';
 
   renderEntrySurface(entry);
 
@@ -511,6 +553,18 @@ function triggerLock(entry) {
       entry.lastMessageKey = 'lockSent';
     } catch (error) {
       console.warn('No es pot enviar l\'ordre de bloqueig', error);
+    }
+  }
+  updateEntryTexts(entry);
+}
+
+function triggerUnlock(entry) {
+  if (entry.connection && entry.connection.open) {
+    try {
+      entry.connection.send({ type: 'lock', locked: false, reason: 'admin-unlock', restartMonitoring: true });
+      entry.lastMessageKey = 'unlockSent';
+    } catch (error) {
+      console.warn('No es pot enviar l\'ordre de desbloqueig', error);
     }
   }
   updateEntryTexts(entry);

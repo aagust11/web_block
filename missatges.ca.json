@@ -96,9 +96,12 @@
     "tileSurfaceWindow": "Compartint finestra",
     "tileSurfaceBrowser": "Compartint pestanya",
     "tileSurfaceUnknown": "Origen desconegut",
-    "tileHint": "Fes clic per capturar un fotograma i enviar el bloqueig.",
+    "tileHint": "Fes clic per capturar un fotograma i enviar el bloqueig. Fes servir el botó per desbloquejar i reprendre el monitoratge.",
+    "tileActionLock": "Bloqueja",
+    "tileActionUnlock": "Desbloqueja",
     "tileCapture": "Darrera captura: {time}",
     "tileCaptureEmpty": "Encara no s'ha capturat cap fotograma.",
-    "lockSent": "Ordre de bloqueig enviada"
+    "lockSent": "Ordre de bloqueig enviada",
+    "unlockSent": "Ordre de desbloqueig enviada"
   }
 }
