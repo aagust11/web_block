@@ -157,6 +157,128 @@ function canUsePeer() {
   return typeof window !== 'undefined' && typeof window.Peer === 'function';
 }
 
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+function createLucideIcon(parts) {
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('xmlns', SVG_NS);
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('stroke', 'currentColor');
+  svg.setAttribute('stroke-width', '2');
+  svg.setAttribute('stroke-linecap', 'round');
+  svg.setAttribute('stroke-linejoin', 'round');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('focusable', 'false');
+  svg.classList.add('admin-tile__surface-icon-image');
+
+  parts.forEach((part) => {
+    const element = document.createElementNS(SVG_NS, part.tag);
+    Object.entries(part.attrs).forEach(([key, value]) => {
+      element.setAttribute(key, value);
+    });
+    svg.appendChild(element);
+  });
+
+  return svg;
+}
+
+const DISPLAY_SURFACE_VARIANTS = {
+  monitor: {
+    messageKey: 'tileSurfaceMonitor',
+    fallback: 'Monitor',
+    createIcon: () =>
+      createLucideIcon([
+        { tag: 'rect', attrs: { x: '2', y: '3', width: '20', height: '14', rx: '2', ry: '2' } },
+        { tag: 'line', attrs: { x1: '8', y1: '21', x2: '16', y2: '21' } },
+        { tag: 'line', attrs: { x1: '12', y1: '17', x2: '12', y2: '21' } }
+      ])
+  },
+  window: {
+    messageKey: 'tileSurfaceWindow',
+    fallback: 'Window',
+    createIcon: () =>
+      createLucideIcon([
+        { tag: 'path', attrs: { d: 'M2 6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2Z' } },
+        { tag: 'path', attrs: { d: 'M2 10h20' } },
+        { tag: 'path', attrs: { d: 'M6 6v4' } }
+      ])
+  },
+  browser: {
+    messageKey: 'tileSurfaceBrowser',
+    fallback: 'Browser',
+    createIcon: () =>
+      createLucideIcon([
+        { tag: 'circle', attrs: { cx: '12', cy: '12', r: '10' } },
+        { tag: 'path', attrs: { d: 'M2 12h20' } },
+        { tag: 'path', attrs: { d: 'M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10Z' } }
+      ])
+  },
+  unknown: {
+    messageKey: 'tileSurfaceUnknown',
+    fallback: 'Unknown source',
+    createIcon: () =>
+      createLucideIcon([
+        { tag: 'circle', attrs: { cx: '12', cy: '12', r: '10' } },
+        { tag: 'path', attrs: { d: 'M9.09 9a3 3 0 1 1 5.82 1c0 1.5-3 2-3 2' } },
+        { tag: 'line', attrs: { x1: '12', y1: '17', x2: '12.01', y2: '17' } }
+      ])
+  }
+};
+
+function normaliseDisplaySurface(surface) {
+  if (typeof surface !== 'string') {
+    return 'unknown';
+  }
+  const value = surface.toLowerCase();
+  if (value === 'monitor' || value === 'window' || value === 'browser') {
+    return value;
+  }
+  return 'unknown';
+}
+
+function renderEntrySurface(entry) {
+  if (!entry?.surfaceEl) {
+    return;
+  }
+
+  const surface = normaliseDisplaySurface(entry.displaySurface);
+  entry.displaySurface = surface;
+  const config = DISPLAY_SURFACE_VARIANTS[surface] ?? DISPLAY_SURFACE_VARIANTS.unknown;
+
+  if (entry.surfaceIconEl) {
+    const currentIcon = entry.surfaceIconEl.dataset.icon ?? '';
+    if (currentIcon !== surface) {
+      entry.surfaceIconEl.dataset.icon = surface;
+      while (entry.surfaceIconEl.firstChild) {
+        entry.surfaceIconEl.removeChild(entry.surfaceIconEl.firstChild);
+      }
+      try {
+        const icon = config.createIcon();
+        entry.surfaceIconEl.appendChild(icon);
+      } catch (error) {
+        console.warn('No es pot renderitzar la icona de la superfície compartida', error);
+      }
+    }
+  }
+
+  if (entry.surfaceLabelEl) {
+    const adminMessages = state.messages?.admin ?? {};
+    const label = adminMessages[config.messageKey] ?? config.fallback;
+    entry.surfaceLabelEl.textContent = label;
+  }
+
+  entry.surfaceEl.classList.remove('hidden');
+}
+
+function setEntrySurface(entry, surface) {
+  if (!entry) {
+    return;
+  }
+  entry.displaySurface = normaliseDisplaySurface(surface);
+  renderEntrySurface(entry);
+}
+
 function getOrCreateEntry(peerId, metadata = {}) {
   let entry = state.entries.get(peerId);
   if (entry) {
@@ -165,6 +287,9 @@ function getOrCreateEntry(peerId, metadata = {}) {
     }
     if (typeof metadata.locked === 'boolean') {
       entry.locked = metadata.locked;
+    }
+    if (Object.prototype.hasOwnProperty.call(metadata, 'displaySurface')) {
+      setEntrySurface(entry, metadata.displaySurface);
     }
     updateEntryTexts(entry);
     return entry;
@@ -186,6 +311,16 @@ function getOrCreateEntry(peerId, metadata = {}) {
   const meta = document.createElement('p');
   meta.className = 'admin-tile__meta';
   header.appendChild(meta);
+
+  const surface = document.createElement('p');
+  surface.className = 'admin-tile__surface';
+  const surfaceIcon = document.createElement('span');
+  surfaceIcon.className = 'admin-tile__surface-icon';
+  surface.appendChild(surfaceIcon);
+  const surfaceLabel = document.createElement('span');
+  surfaceLabel.className = 'admin-tile__surface-text';
+  surface.appendChild(surfaceLabel);
+  header.appendChild(surface);
 
   const status = document.createElement('p');
   status.className = 'admin-tile__status';
@@ -229,6 +364,10 @@ function getOrCreateEntry(peerId, metadata = {}) {
     header,
     titleEl: title,
     metaEl: meta,
+    surfaceEl: surface,
+    surfaceIconEl: surfaceIcon,
+    surfaceLabelEl: surfaceLabel,
+    displaySurface: normaliseDisplaySurface(metadata.displaySurface),
     statusEl: status,
     video,
     canvas,
@@ -310,6 +449,8 @@ function updateEntryTexts(entry) {
   entry.statusEl.textContent = statusText;
   entry.hintEl.textContent = adminMessages.tileHint ?? 'Fes clic per capturar i bloquejar.';
 
+  renderEntrySurface(entry);
+
   if (entry.lastCapture) {
     const captureTemplate = adminMessages.tileCapture ?? 'Darrera captura: {time}';
     entry.captureEl.textContent = captureTemplate.replace('{time}', formatTime(entry.lastCapture));
@@ -368,6 +509,10 @@ function handleEntryData(entry, payload) {
     entry.code = payload.code;
   }
 
+  if (Object.prototype.hasOwnProperty.call(payload, 'displaySurface')) {
+    setEntrySurface(entry, payload.displaySurface);
+  }
+
   if (payload.event === 'lock-change') {
     entry.lastMessageKey = null;
   }
@@ -380,6 +525,9 @@ function handleIncomingCall(call) {
   const peerId = call.peer;
   const entry = getOrCreateEntry(peerId, call.metadata ?? {});
   entry.call = call;
+  if (call.metadata && Object.prototype.hasOwnProperty.call(call.metadata, 'displaySurface')) {
+    setEntrySurface(entry, call.metadata.displaySurface);
+  }
 
   call.answer();
   call.on('stream', (stream) => {
