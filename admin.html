@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ca">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>contrOwl · Administració</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="icon" href="src/contrOwl.ico?v=2" />
+  </head>
+  <body class="admin">
+    <header class="admin-header">
+      <div class="admin-header__titles">
+        <h1 id="adminTitle"></h1>
+        <p id="adminDescription"></p>
+      </div>
+      <div class="admin-header__actions">
+        <label class="visually-hidden" for="adminLanguageSelect">Idioma</label>
+        <select id="adminLanguageSelect" class="language-select" aria-label="Idioma">
+          <option value="ca">Català</option>
+          <option value="es">Castellano</option>
+        </select>
+        <span id="adminPeerId" class="admin-header__id hidden" aria-live="polite"></span>
+      </div>
+    </header>
+
+    <main class="admin-main">
+      <section class="admin-status" aria-live="polite">
+        <span id="adminConnectionStatus" class="admin-status__item"></span>
+        <span id="adminLockStatus" class="admin-status__item"></span>
+        <span id="adminStreamsCount" class="admin-status__item"></span>
+      </section>
+
+      <section id="adminGrid" class="admin-grid" aria-live="polite"></section>
+      <p id="adminEmptyState" class="admin-empty" role="status" aria-live="polite"></p>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.2/dist/peerjs.min.js" crossorigin="anonymous"></script>
+    <script type="module" src="admin.js"></script>
+  </body>
+</html>

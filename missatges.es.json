@@ -53,6 +53,36 @@
     "statusFullscreenOn": "Activa",
     "statusFullscreenOff": "Inactiva",
     "monitorBadgeFallback": "Registro en pausa",
-    "monitoringBarExit": "Cerrar monitorización"
+    "monitoringBarExit": "Cerrar monitorización",
+    "statusPeer": "Conexión",
+    "statusPeerIdle": "Inactiva",
+    "statusPeerConnecting": "Conectando",
+    "statusPeerConnected": "Conectada",
+    "statusPeerError": "Error",
+    "statusPeerUnavailable": "No disponible",
+    "statusLockState": "Bloqueo",
+    "statusLockStateLocked": "Activo",
+    "statusLockStateUnlocked": "Inactivo"
+  },
+  "admin": {
+    "title": "Sala de administración de contrOwl",
+    "description": "Supervisa las transmisiones activas y bloquea remotamente las sesiones ante cualquier incidencia.",
+    "peerId": "ID de administración: {id}",
+    "statusOffline": "Conectando con el servidor PeerJS…",
+    "statusReady": "Servidor PeerJS listo",
+    "statusError": "Error de conexión con PeerJS",
+    "streamsCount": "Participantes activos: {count}",
+    "lockedCount": "Bloqueos activos: {count}",
+    "empty": "Todavía no hay transmisiones activas.",
+    "tileTitle": "Participante {id}",
+    "tileCode": "Código: {code}",
+    "tileCodeUnknown": "Código no asignado",
+    "tileStatusLocked": "Bloqueo activo",
+    "tileStatusUnlocked": "Monitorización activa",
+    "tileStatusUnknown": "Sin estado",
+    "tileHint": "Haz clic para capturar un fotograma y enviar el bloqueo.",
+    "tileCapture": "Última captura: {time}",
+    "tileCaptureEmpty": "Aún no se ha capturado ningún fotograma.",
+    "lockSent": "Orden de bloqueo enviada"
   }
 }
