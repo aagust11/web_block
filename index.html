@@ -1,183 +1,25 @@
+
 <!DOCTYPE html>
-<html lang="ca">
+<html lang="en">
   <head>
-    <meta charset="utf-8" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>contrOwl</title>
-    <link rel="stylesheet" href="styles.css" />
-    <link rel="icon" href="src/contrOwl.ico?v=2">
-  </head>
-  <body>
-    <div
-      id="monitoringBar"
-      class="monitoring-bar hidden"
-      role="status"
-      aria-live="polite"
-    >
-      <div class="monitoring-bar__info">
-        <img
-          src="src/contrOwl_red.png"
-          alt=""
-          class="monitoring-bar__icon"
-          aria-hidden="true"
-        />
-        <span id="monitoringBarMessage" class="monitoring-bar__message"></span>
-      </div>
-      <button
-        id="monitoringBarExit"
-        type="button"
-        class="monitoring-bar__exit"
-      ></button>
-    </div>
-
-    <div id="lockOverlay" class="lock-overlay hidden" role="alertdialog" aria-modal="true" aria-labelledby="lockTitle" aria-describedby="lockDescription">
-      <div class="lock-overlay__content">
-        <h2 id="lockTitle"></h2>
-        <p id="lockDescription"></p>
-        <div id="lockLog" class="lock-overlay__log" aria-live="polite">
-          <div class="lock-overlay__log-header">
-            <svg
-              class="lock-overlay__log-icon"
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-              focusable="false"
-            >
-              <path
-                fill="none"
-                stroke="currentColor"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="1.5"
-                d="M12 22c-6-3.1-9-6.3-9-11V5l9-3 9 3v6c0 4.7-3 7.9-9 11Z"
-              />
-              <path
-                fill="none"
-                stroke="currentColor"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="1.5"
-                d="m15 9-6 6m0-6 6 6"
-              />
-            </svg>
-            <span id="lockLogTitle" class="lock-overlay__log-title"></span>
-          </div>
-          <ul id="lockLogList" class="lock-overlay__log-list" role="list"></ul>
-        </div>
-        <form id="unlockForm" class="lock-overlay__form hidden" novalidate>
-          <label id="unlockLabel" for="unlockInput"></label>
-          <input id="unlockInput" type="password" autocomplete="off" />
-          <p id="unlockHelp" class="help-text hidden"></p>
-          <p id="unlockError" class="lock-overlay__error hidden" role="alert"></p>
-          <button id="unlockSubmit" class="primary" type="submit"></button>
-        </form>
-        <div class="lock-overlay__actions">
-          <button id="unlockButton" class="primary" type="button"></button>
-        </div>
-      </div>
-    </div>
-
-    <header class="app-header">
-      <div class="app-header__brand">
-        <img
-          src="src/contrOwl.png"
-          alt="Logotip contrOwl"
-          class="app-header__logo"
-        />
-        <div class="app-header__titles">
-          <h1 class="app-header__name">contrOwl</h1>
-          <p id="headerTitle" class="app-header__tagline"></p>
-        </div>
-      </div>
-      <div class="app-header__actions">
-        <label class="visually-hidden" for="languageSelect">Idioma</label>
-        <select id="languageSelect" class="language-select" aria-label="Idioma">
-          <option value="ca">Català</option>
-          <option value="es">Castellano</option>
-        </select>
-        <a class="icon-link" href="info.html">
-          <span class="visually-hidden">Informació del projecte</span>
-          <svg
-            class="icon"
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-            focusable="false"
-          >
-            <circle cx="12" cy="12" r="9" />
-            <path d="M12 16v-4" />
-            <path d="M12 8h.01" />
-          </svg>
-        </a>
-      </div>
-    </header>
-
-    <div class="banner" role="status" aria-live="polite">
-      <div class="banner__text">
-        <strong id="bannerTitle"></strong>
-        <p id="bannerDescription"></p>
-      </div>
-      <div class="banner__badges">
-        <span class="badge" id="monitorBadge" aria-live="polite"></span>
-        <span class="badge badge--alert" id="lockBadge" aria-live="polite"></span>
-      </div>
-    </div>
-
-    <main>
-      <section id="errorRegion" class="error hidden" role="alert" aria-live="assertive"></section>
-
-      <section id="accessScreen" class="panel">
-        <h2 id="accessTitle"></h2>
-        <p id="accessDescription"></p>
-        <form id="accessForm" novalidate>
-          <label for="nameInput" id="nameLabel"></label>
-          <input
-            id="nameInput"
-            name="name"
-            type="text"
-            autocomplete="name"
-            aria-describedby="nameHelp"
-          />
-          <p id="nameHelp" class="help-text hidden"></p>
-          <label for="codeInput" id="codeLabel"></label>
-          <input id="codeInput" name="code" type="text" inputmode="uppercase" autocomplete="off" required aria-describedby="attemptsInfo" />
-          <p id="attemptsInfo" class="help-text"></p>
-          <div class="actions">
-            <button type="submit" id="submitButton" class="primary"></button>
-          </div>
-        </form>
-      </section>
-
-      <section id="viewer" class="panel hidden" aria-live="polite">
-        <header class="panel__header">
-          <h2 id="viewerTitle"></h2>
-          <div class="status" role="status" aria-live="polite">
-            <span class="status__item" id="visibilityStatus"></span>
-            <span class="status__item" id="focusStatus"></span>
-            <span class="status__item" id="fullscreenStatus"></span>
-            <span class="status__item" id="connectionStatus"></span>
-            <span class="status__item" id="lockStateStatus"></span>
-          </div>
-        </header>
-        <div class="viewer__frame">
-          <iframe id="contentFrame" title="Visor de contingut" loading="lazy" referrerpolicy="no-referrer" tabindex="-1"></iframe>
-        </div>
-        <section id="fallback" class="fallback hidden" role="group" aria-live="polite">
-          <h3 id="fallbackTitle"></h3>
-          <p id="fallbackDescription"></p>
-          <a id="fallbackLink" class="primary" href="#" target="_blank" rel="noopener"></a>
-        </section>
-      </section>
-    </main>
-    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.2/dist/peerjs.min.js" crossorigin="anonymous"></script>
-    <script type="module" src="app.js"></script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Secure Proctoring & Monitoring</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body class="bg-gray-900 text-white">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
   </body>
 </html>
