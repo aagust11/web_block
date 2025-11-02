@@ -11,7 +11,8 @@ const STORAGE_KEYS = {
   lockReason: 'wb_lock_reason',
   language: 'wb_language',
   peerStatus: 'wb_peer_status',
-  peerId: 'wb_peer_id'
+  peerId: 'wb_peer_id',
+  name: 'wb_name'
 };
 
 const elements = {
@@ -41,6 +42,9 @@ const elements = {
   accessScreen: document.getElementById('accessScreen'),
   accessTitle: document.getElementById('accessTitle'),
   accessDescription: document.getElementById('accessDescription'),
+  nameLabel: document.getElementById('nameLabel'),
+  nameInput: document.getElementById('nameInput'),
+  nameHelp: document.getElementById('nameHelp'),
   codeLabel: document.getElementById('codeLabel'),
   codeInput: document.getElementById('codeInput'),
   attemptsInfo: document.getElementById('attemptsInfo'),
@@ -84,7 +88,8 @@ const state = {
   peerStatus: 'idle',
   peerError: null,
   displaySurface: 'unknown',
-  displaySurfaceMonitor: null
+  displaySurfaceMonitor: null,
+  name: ''
 };
 
 const ADMIN_PEER_ID = 'contrOwl-admin';
@@ -502,6 +507,18 @@ function applyMessages(messages) {
 
   elements.accessTitle.textContent = ui.accessTitle;
   elements.accessDescription.textContent = ui.accessDescription;
+  if (elements.nameLabel) {
+    elements.nameLabel.textContent = ui.nameLabel ?? '';
+  }
+  if (elements.nameInput) {
+    const placeholder = normaliseDisplayText(ui.namePlaceholder ?? '');
+    elements.nameInput.setAttribute('placeholder', placeholder);
+  }
+  if (elements.nameHelp) {
+    const helpText = normaliseDisplayText(ui.nameHelp ?? '');
+    elements.nameHelp.textContent = helpText;
+    elements.nameHelp.classList.toggle('hidden', helpText.length === 0);
+  }
   elements.codeLabel.textContent = ui.codeLabel;
   elements.codeInput.setAttribute('placeholder', ui.codePlaceholder);
   elements.submitButton.textContent = ui.submit;
@@ -685,6 +702,7 @@ function broadcastPeerStatus(extra = {}) {
       viewerActive: state.viewerActive,
       peerId: state.peerId,
       code: state.activeCode,
+      name: state.name,
       status: state.peerStatus,
       displaySurface: state.displaySurface,
       ...extra
@@ -885,6 +903,7 @@ async function initialisePeerSession() {
     metadata: {
       code: state.activeCode,
       peerId,
+      name: state.name,
       locked: state.locked,
       displaySurface: state.displaySurface
     }
@@ -916,6 +935,7 @@ async function initialisePeerSession() {
     metadata: {
       code: state.activeCode,
       peerId,
+      name: state.name,
       displaySurface: state.displaySurface
     }
   });
@@ -1146,6 +1166,13 @@ function initialiseState() {
     state.peerStatus = PEER_STATUS.unavailable;
   }
 
+  const storedName = readStorage(STORAGE_KEYS.name);
+  const normalisedName = normaliseDisplayText(storedName ?? '');
+  state.name = normalisedName;
+  if (normalisedName && elements.nameInput) {
+    elements.nameInput.value = normalisedName;
+  }
+
   const storedCode = readStorage(STORAGE_KEYS.lastCode);
   if (storedCode) {
     elements.codeInput.value = storedCode;
@@ -1183,6 +1210,14 @@ async function handleSubmit(event) {
     return;
   }
 
+  const nameValue = normaliseDisplayText(elements.nameInput?.value ?? '');
+  if (!nameValue) {
+    const errorMessage = state.messages.ui.errorNameMissing ?? state.messages.ui.errorInvalid;
+    showError(errorMessage);
+    elements.nameInput?.focus();
+    return;
+  }
+
   const code = elements.codeInput.value.trim().toUpperCase();
   if (!code) {
     showError(state.messages.ui.errorInvalid);
@@ -1204,12 +1239,17 @@ async function handleSubmit(event) {
     return;
   }
 
+  state.name = nameValue;
+  if (elements.nameInput) {
+    elements.nameInput.value = nameValue;
+  }
   state.activeCode = code;
   state.viewerActive = true;
   state.attemptsLeft = MAX_ATTEMPTS;
   persistAttempts();
   updateAttemptsInfo();
   writeStorage(STORAGE_KEYS.lastCode, code);
+  writeStorage(STORAGE_KEYS.name, state.name);
   state.contentReady = false;
 
   const ui = state.messages?.ui;
