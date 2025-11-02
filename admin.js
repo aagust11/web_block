@@ -693,8 +693,15 @@ function updateEntryTexts(entry) {
   const adminMessages = state.messages?.admin ?? {};
   entry.container.classList.toggle('admin-tile--locked', entry.locked === true);
 
-  const titleTemplate = adminMessages.tileTitle ?? 'Participant {id}';
-  entry.titleEl.textContent = titleTemplate.replace('{id}', entry.id);
+  const titleTemplate = adminMessages.tileTitle ?? 'Participant {name}';
+  const unknownTitleTemplate = adminMessages.tileTitleUnknown ?? 'Participant {id} · {name}';
+  const unknownName = adminMessages.tileNameUnknown ?? 'Nom no assignat';
+  const resolvedName = typeof entry.name === 'string' ? entry.name.trim() : '';
+  const hasName = resolvedName.length > 0;
+  const titleText = (hasName ? titleTemplate : unknownTitleTemplate)
+    .replace('{name}', hasName ? resolvedName : unknownName)
+    .replace('{id}', entry.id);
+  entry.titleEl.textContent = titleText;
 
   if (entry.nameEl) {
     if (entry.name && entry.name.length > 0) {
@@ -741,7 +748,10 @@ function updateEntryTexts(entry) {
   }
 
   entry.statusEl.textContent = statusText;
-  entry.hintEl.textContent = adminMessages.tileHint ?? 'Fes clic per capturar i bloquejar. Usa el botó per desbloquejar.';
+  if (entry.hintEl) {
+    entry.hintEl.textContent = '';
+    entry.hintEl.classList.add('hidden');
+  }
 
   renderEntrySurface(entry);
 
