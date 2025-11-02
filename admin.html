@@ -31,6 +31,54 @@
         <span id="adminStreamsCount" class="admin-status__item"></span>
       </section>
 
+      <div id="adminLayoutControls" class="admin-layout" role="group" aria-label="Distribució de la vista">
+        <button type="button" id="adminLayoutGrid" class="admin-layout__control" aria-pressed="true">
+          Vista en graella
+        </button>
+        <button type="button" id="adminLayoutFocus" class="admin-layout__control" aria-pressed="false">
+          Vista enfocada
+        </button>
+      </div>
+
+      <section id="adminFocus" class="admin-focus" aria-live="polite">
+        <div id="adminFocusContent" class="admin-focus__content hidden">
+          <header class="admin-focus__header">
+            <div class="admin-focus__titles">
+              <h2 id="adminFocusTitle" class="admin-focus__title"></h2>
+              <p id="adminFocusName" class="admin-focus__name"></p>
+              <p id="adminFocusMeta" class="admin-focus__meta"></p>
+            </div>
+            <div class="admin-focus__header-actions">
+              <p id="adminFocusSurface" class="admin-focus__surface hidden">
+                <span id="adminFocusSurfaceIcon" class="admin-focus__surface-icon" aria-hidden="true"></span>
+                <span id="adminFocusSurfaceText" class="admin-focus__surface-text"></span>
+              </p>
+              <button type="button" id="adminFocusBack" class="admin-focus__back"></button>
+            </div>
+          </header>
+          <p id="adminFocusStatus" class="admin-focus__status"></p>
+          <div class="admin-focus__media">
+            <video
+              id="adminFocusVideo"
+              class="admin-focus__video"
+              autoplay
+              playsinline
+              muted
+            ></video>
+          </div>
+          <div class="admin-focus__actions">
+            <button type="button" id="adminFocusLock" class="admin-tile__action admin-tile__action--lock"></button>
+            <button
+              type="button"
+              id="adminFocusUnlock"
+              class="admin-tile__action admin-tile__action--unlock"
+            ></button>
+          </div>
+          <p id="adminFocusCapture" class="admin-focus__capture"></p>
+        </div>
+        <p id="adminFocusEmpty" class="admin-focus__empty"></p>
+      </section>
+
       <section id="adminGrid" class="admin-grid" aria-live="polite"></section>
       <p id="adminEmptyState" class="admin-empty" role="status" aria-live="polite"></p>
     </main>

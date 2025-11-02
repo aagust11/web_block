@@ -102,6 +102,11 @@
     "tileCapture": "Darrera captura: {time}",
     "tileCaptureEmpty": "Encara no s'ha capturat cap fotograma.",
     "lockSent": "Ordre de bloqueig enviada",
-    "unlockSent": "Ordre de desbloqueig enviada"
+    "unlockSent": "Ordre de desbloqueig enviada",
+    "layoutLabel": "Distribució de la vista",
+    "layoutGrid": "Vista en graella",
+    "layoutFocus": "Vista enfocada",
+    "focusBack": "Torna a la graella",
+    "focusEmpty": "Selecciona un participant per veure'l en focus."
   }
 }

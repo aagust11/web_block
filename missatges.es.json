@@ -102,6 +102,11 @@
     "tileCapture": "Última captura: {time}",
     "tileCaptureEmpty": "Aún no se ha capturado ningún fotograma.",
     "lockSent": "Orden de bloqueo enviada",
-    "unlockSent": "Orden de desbloqueo enviada"
+    "unlockSent": "Orden de desbloqueo enviada",
+    "layoutLabel": "Distribución de la vista",
+    "layoutGrid": "Vista en cuadrícula",
+    "layoutFocus": "Vista enfocada",
+    "focusBack": "Volver a la cuadrícula",
+    "focusEmpty": "Selecciona a una persona participante para centrarla."
   }
 }
