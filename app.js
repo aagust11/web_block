@@ -219,6 +219,33 @@ function normaliseMonitoringReasons(input) {
   return Array.from(new Set(cleaned));
 }
 
+function normaliseStreamLockDetails(details = {}) {
+  if (!details || typeof details !== 'object') {
+    return { reason: 'ended' };
+  }
+
+  const result = {};
+  if (typeof details.reason === 'string' && details.reason.trim().length > 0) {
+    result.reason = details.reason.trim();
+  } else {
+    result.reason = 'ended';
+  }
+
+  if (typeof details.trackKind === 'string' && details.trackKind.trim().length > 0) {
+    result.trackKind = details.trackKind.trim();
+  }
+
+  if (typeof details.trackLabel === 'string' && details.trackLabel.trim().length > 0) {
+    result.trackLabel = details.trackLabel.trim();
+  }
+
+  if (typeof details.trackId === 'string' && details.trackId.trim().length > 0) {
+    result.trackId = details.trackId.trim();
+  }
+
+  return result;
+}
+
 function sanitiseLogEntry(entry) {
   if (!entry || typeof entry !== 'object') {
     return null;
@@ -231,6 +258,10 @@ function sanitiseLogEntry(entry) {
   if (type === 'monitoring') {
     const reasons = normaliseMonitoringReasons(details.reasons);
     return { id: safeId, type, timestamp, details: { reasons } };
+  }
+  if (type === 'stream') {
+    const streamDetails = normaliseStreamLockDetails(details);
+    return { id: safeId, type, timestamp, details: streamDetails };
   }
   return { id: safeId, type, timestamp, details: {} };
 }
@@ -245,6 +276,9 @@ function normaliseLockContext(context) {
   }
   if (type === 'monitoring') {
     return { type, details: { reasons: normaliseMonitoringReasons(details.reasons) } };
+  }
+  if (type === 'stream-ended') {
+    return { type, details: normaliseStreamLockDetails(details) };
   }
   return { type, details: {} };
 }
@@ -294,11 +328,18 @@ function persistLog() {
 }
 
 function addLockLogEntry(type, details = {}) {
+  let resolvedDetails = {};
+  if (type === 'monitoring') {
+    resolvedDetails = { reasons: normaliseMonitoringReasons(details.reasons) };
+  } else if (type === 'stream') {
+    resolvedDetails = normaliseStreamLockDetails(details);
+  }
+
   const entry = {
     id: Date.now(),
     type,
     timestamp: new Date().toISOString(),
-    details: type === 'monitoring' ? { reasons: normaliseMonitoringReasons(details.reasons) } : {}
+    details: resolvedDetails
   };
   state.log.push(entry);
   if (state.log.length > LOG_LIMIT) {
@@ -375,6 +416,9 @@ function getLogMessageForEntry(entry) {
       : [];
     return getMonitoringMessages(reasons).join(' · ');
   }
+  if (entry.type === 'stream') {
+    return ui.overlayLogStream ?? ui.overlayLogMonitoringGeneric ?? '';
+  }
   return ui.overlayLogMonitoringGeneric ?? '';
 }
 
@@ -425,6 +469,9 @@ function updateLockOverlayContent() {
   if (reasonType === 'attempts') {
     elements.lockTitle.textContent = ui.overlayLockedAttemptsTitle ?? ui.overlayLockedTitle;
     elements.lockDescription.textContent = ui.overlayLockedAttemptsDescription ?? ui.overlayLockedDescription;
+  } else if (reasonType === 'stream-ended') {
+    elements.lockTitle.textContent = ui.overlayLockedStreamTitle ?? ui.overlayLockedTitle ?? '';
+    elements.lockDescription.textContent = ui.overlayLockedStreamDescription ?? ui.overlayLockedDescription ?? '';
   } else {
     elements.lockTitle.textContent = ui.overlayLockedTitle ?? '';
     elements.lockDescription.textContent = ui.overlayLockedDescription ?? '';
@@ -654,8 +701,17 @@ async function requestScreenStream() {
   const [videoTrack] = stream.getVideoTracks();
   if (videoTrack) {
     videoTrack.addEventListener('ended', () => {
-      broadcastPeerStatus({ event: 'stream-ended' });
-      destroyPeerSession();
+      const details = {
+        reason: 'track-ended',
+        trackKind: videoTrack.kind ?? 'video',
+        trackLabel: videoTrack.label ?? '',
+        trackId: videoTrack.id ?? ''
+      };
+      const lockContext = { type: 'stream-ended', details };
+      addLockLogEntry('stream', details);
+      setLocked(true, lockContext);
+      broadcastPeerStatus({ event: 'stream-ended', context: lockContext });
+      destroyPeerSession(PEER_STATUS.error, lockContext);
     });
   }
 
@@ -711,7 +767,7 @@ async function initialisePeerSession() {
     peer.on('error', handleError);
   }).catch((error) => {
     setPeerStatus(PEER_STATUS.error, error);
-    destroyPeerSession(PEER_STATUS.error);
+    destroyPeerSession(PEER_STATUS.error, state.lockReason);
     throw error;
   });
 
@@ -723,7 +779,7 @@ async function initialisePeerSession() {
     stream = await requestScreenStream();
   } catch (error) {
     setPeerStatus(PEER_STATUS.error, error);
-    destroyPeerSession(PEER_STATUS.error);
+    destroyPeerSession(PEER_STATUS.error, state.lockReason);
     throw error;
   }
 
@@ -742,14 +798,14 @@ async function initialisePeerSession() {
     setPeerStatus(PEER_STATUS.error, error);
     state.peerCall = null;
     state.peerStream = null;
-    destroyPeerSession(PEER_STATUS.error);
+    destroyPeerSession(PEER_STATUS.error, state.lockReason);
   });
 
   call.on('close', () => {
     state.peerCall = null;
     state.peerStream = null;
     if (state.peerStatus !== PEER_STATUS.idle) {
-      destroyPeerSession(PEER_STATUS.error);
+      destroyPeerSession(PEER_STATUS.error, state.lockReason);
     }
   });
 
@@ -771,20 +827,31 @@ async function initialisePeerSession() {
   connection.on('close', () => {
     state.peerConnection = null;
     if (state.peerStatus !== PEER_STATUS.idle) {
-      destroyPeerSession(PEER_STATUS.error);
+      destroyPeerSession(PEER_STATUS.error, state.lockReason);
     }
   });
 
   connection.on('error', (error) => {
     state.peerConnection = null;
     setPeerStatus(PEER_STATUS.error, error);
-    destroyPeerSession(PEER_STATUS.error);
+    destroyPeerSession(PEER_STATUS.error, state.lockReason);
   });
 }
 
-function destroyPeerSession(nextStatus = PEER_STATUS.idle) {
+function destroyPeerSession(nextStatus = PEER_STATUS.idle, lockContext = null) {
+  const resolvedContext = normaliseLockContext(lockContext);
+  if (resolvedContext) {
+    if (!state.locked || state.lockReason?.type !== resolvedContext.type) {
+      setLocked(true, resolvedContext);
+    } else {
+      state.lockReason = resolvedContext;
+      writeJsonStorage(STORAGE_KEYS.lockReason, resolvedContext);
+    }
+  }
+
+  const closingContext = resolvedContext ?? state.lockReason ?? null;
   if (state.peerConnection && state.peerConnection.open) {
-    broadcastPeerStatus({ event: 'closing' });
+    broadcastPeerStatus({ event: 'closing', context: closingContext });
   }
 
   if (state.peerCall) {
