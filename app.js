@@ -687,9 +687,13 @@ function handlePeerData(data) {
         reason: data.reason ?? null
       }
     };
-    setLocked(desiredState, context);
-    if (!desiredState && data.restartMonitoring === true && state.viewerActive) {
-      scheduleMonitoringStart(true);
+    if (!desiredState) {
+      handleLockCleared({
+        context,
+        restartMonitoring: data.restartMonitoring === true
+      });
+    } else {
+      setLocked(desiredState, context);
     }
   }
 }
@@ -1100,6 +1104,15 @@ function resetViewer() {
   elements.codeInput.focus();
 }
 
+function handleLockCleared({ context = null, restartMonitoring = false } = {}) {
+  const wasViewerActive = state.viewerActive;
+  resetViewer();
+  setLocked(false, context);
+  if (restartMonitoring && wasViewerActive) {
+    scheduleMonitoringStart(true);
+  }
+}
+
 function engageLock(reason = '') {
   if (!state.viewerActive || state.locked || !state.monitoringEnabled) {
     return;
@@ -1447,12 +1460,7 @@ function refreshUnlockForm() {
 }
 
 function completeUnlock() {
-  setLocked(false);
-  if (state.viewerActive) {
-    setMonitoringMessage(state.messages.banner.monitor);
-    elements.contentFrame.focus();
-    scheduleMonitoringStart(true);
-  }
+  handleLockCleared();
 }
 
 function handleUnlockSubmit(event) {
