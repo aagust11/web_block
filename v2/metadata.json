@@ -1,0 +1,9 @@
+
+{
+  "name": "Secure Proctoring & Monitoring",
+  "description": "An application for securely displaying content to users while monitoring their screen in real-time. It features a kiosk mode to prevent users from navigating away and an admin panel for remote viewing and control.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
