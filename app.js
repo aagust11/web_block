@@ -1059,6 +1059,15 @@ async function init() {
 
   document.addEventListener('fullscreenchange', () => {
     updateStatuses();
+    if (!state.viewerActive || state.locked) {
+      return;
+    }
+
+    if (!document.fullscreenElement || document.fullscreenElement !== elements.viewer) {
+      const fallbackMessage = state.messages?.ui?.monitorBadgeFallback ?? '';
+      setMonitoringMessage(fallbackMessage);
+      engageLock('exit-fullscreen', { force: true });
+    }
   });
 
   if (state.locked) {
