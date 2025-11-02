@@ -528,7 +528,6 @@ function setLocked(isLocked, context = null) {
       removeStorage(STORAGE_KEYS.lockReason);
     }
     setBadgeText(elements.lockBadge, state.messages?.banner.locked ?? 'Bloquejat');
-    exitFullscreenIfActive();
     elements.lockOverlay.classList.remove('hidden');
     setMonitoringMessage(state.messages?.ui.monitorBadgeFallback ?? '');
     disableMonitoring();
