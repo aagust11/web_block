@@ -288,6 +288,14 @@ function getOrCreateEntry(peerId, metadata = {}) {
     if (typeof metadata.locked === 'boolean') {
       entry.locked = metadata.locked;
     }
+    if (Object.prototype.hasOwnProperty.call(metadata, 'name')) {
+      if (typeof metadata.name === 'string') {
+        const trimmedName = metadata.name.trim();
+        entry.name = trimmedName;
+      } else {
+        entry.name = '';
+      }
+    }
     if (Object.prototype.hasOwnProperty.call(metadata, 'displaySurface')) {
       setEntrySurface(entry, metadata.displaySurface);
     }
@@ -307,6 +315,10 @@ function getOrCreateEntry(peerId, metadata = {}) {
   const title = document.createElement('h2');
   title.className = 'admin-tile__title';
   header.appendChild(title);
+
+  const name = document.createElement('p');
+  name.className = 'admin-tile__name';
+  header.appendChild(name);
 
   const meta = document.createElement('p');
   meta.className = 'admin-tile__meta';
@@ -360,9 +372,11 @@ function getOrCreateEntry(peerId, metadata = {}) {
     id: peerId,
     code: metadata.code ?? null,
     locked: metadata.locked ?? null,
+    name: typeof metadata.name === 'string' ? metadata.name.trim() : '',
     container,
     header,
     titleEl: title,
+    nameEl: name,
     metaEl: meta,
     surfaceEl: surface,
     surfaceIconEl: surfaceIcon,
@@ -422,6 +436,15 @@ function updateEntryTexts(entry) {
 
   const titleTemplate = adminMessages.tileTitle ?? 'Participant {id}';
   entry.titleEl.textContent = titleTemplate.replace('{id}', entry.id);
+
+  if (entry.nameEl) {
+    if (entry.name && entry.name.length > 0) {
+      const nameTemplate = adminMessages.tileName ?? 'Nom: {name}';
+      entry.nameEl.textContent = nameTemplate.replace('{name}', entry.name);
+    } else {
+      entry.nameEl.textContent = adminMessages.tileNameUnknown ?? 'Nom no assignat';
+    }
+  }
 
   if (entry.code) {
     const codeTemplate = adminMessages.tileCode ?? 'Codi: {code}';
@@ -507,6 +530,14 @@ function handleEntryData(entry, payload) {
 
   if (typeof payload.code === 'string' && payload.code.length > 0) {
     entry.code = payload.code;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(payload, 'name')) {
+    if (typeof payload.name === 'string') {
+      entry.name = payload.name.trim();
+    } else {
+      entry.name = '';
+    }
   }
 
   if (Object.prototype.hasOwnProperty.call(payload, 'displaySurface')) {

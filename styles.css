@@ -776,6 +776,7 @@ body.admin {
 }
 
 .admin-tile__meta,
+.admin-tile__name,
 .admin-tile__status {
   margin: 0;
   font-size: 0.9rem;

@@ -138,6 +138,15 @@
         <h2 id="accessTitle"></h2>
         <p id="accessDescription"></p>
         <form id="accessForm" novalidate>
+          <label for="nameInput" id="nameLabel"></label>
+          <input
+            id="nameInput"
+            name="name"
+            type="text"
+            autocomplete="name"
+            aria-describedby="nameHelp"
+          />
+          <p id="nameHelp" class="help-text hidden"></p>
           <label for="codeInput" id="codeLabel"></label>
           <input id="codeInput" name="code" type="text" inputmode="uppercase" autocomplete="off" required aria-describedby="attemptsInfo" />
           <p id="attemptsInfo" class="help-text"></p>
