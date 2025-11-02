@@ -52,3 +52,5 @@ Per assegurar que la clau mestra restaura l'accés en tots els escenaris de bloq
    - A la pantalla d'accés introdueix codis incorrectes fins que s'esgotin els intents disponibles.
    - Verifica que el formulari de desbloqueig es mostri i accepti l'entrada.
    - Introdueix la clau del fitxer `master_k` i comprova que el bloqueig desapareix i es restableixen els intents.
+  
+Àngel
