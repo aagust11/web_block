@@ -96,9 +96,12 @@
     "tileSurfaceWindow": "Compartiendo ventana",
     "tileSurfaceBrowser": "Compartiendo pestaña",
     "tileSurfaceUnknown": "Origen desconocido",
-    "tileHint": "Haz clic para capturar un fotograma y enviar el bloqueo.",
+    "tileHint": "Haz clic para capturar un fotograma y enviar el bloqueo. Usa el botón para desbloquear y reactivar la monitorización.",
+    "tileActionLock": "Bloquear",
+    "tileActionUnlock": "Desbloquear",
     "tileCapture": "Última captura: {time}",
     "tileCaptureEmpty": "Aún no se ha capturado ningún fotograma.",
-    "lockSent": "Orden de bloqueo enviada"
+    "lockSent": "Orden de bloqueo enviada",
+    "unlockSent": "Orden de desbloqueo enviada"
   }
 }
